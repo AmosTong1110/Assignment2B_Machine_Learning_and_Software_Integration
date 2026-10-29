@@ -1,0 +1,13 @@
+{
+  "traffic_csv": "demo_data/traffic.csv",
+  "edges_csv": "demo_data/edges.csv",
+  "model_dir": "models",
+  "model": "linear",
+  "origin": "1000",
+  "destination": "5000",
+  "window": 8,
+  "epochs": 20,
+  "train_fraction": 0.8,
+  "k": 5,
+  "use_demo_conversion": false
+}
