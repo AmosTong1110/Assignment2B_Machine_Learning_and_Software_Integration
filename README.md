@@ -27,6 +27,6 @@ The supplied Boroondara PDF is a static map, not a verified road-edge table. The
 
 ## Files and validation
 
-`app.py` GUI; `data_processing.py` 2026 detector conversion; `prepare_2006.py` 2006 workbook converter; `models.py` models; `train.py` training; `evaluation.py` errors; `graph.py` and `route_search.py` graph search; `travel_time.py` course conversion; `forecast.py` and `routing.py` compatibility wrappers; `tests/` test cases. Earlier `prototype/` is retained separately.
+`app.py` GUI; `data_processing.py` 2026 detector conversion; `prepare_2006.py` 2006 workbook converter; `models.py` models; `train.py` training; `evaluation.py` errors; `graph.py` and `route_search.py` graph search; `travel_time.py` course conversion; `forecast.py` and `routing.py` compatibility wrappers; `tests/` test cases.
 
 Tests use both small fictional cases and checked source data for an example; they do not verify the full Boroondara application. LSTM/GRU need PyTorch; GUI interaction needs a working desktop. No real-data model comparison or complete assignment route has been validated.
