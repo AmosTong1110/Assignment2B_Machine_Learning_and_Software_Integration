@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+.venv/
+saved_models/
+models/
+data/raw/

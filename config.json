@@ -1,0 +1,12 @@
+{
+  "traffic_csv": "data/prepared/site_2000_hf6246_2006.csv",
+  "edges_csv": "data/boroondara_edges.csv",
+  "model_dir": "saved_models",
+  "model": "linear",
+  "origin": "2000",
+  "destination": "3002",
+  "window": 8,
+  "epochs": 20,
+  "train_fraction": 0.8,
+  "k": 5
+}
