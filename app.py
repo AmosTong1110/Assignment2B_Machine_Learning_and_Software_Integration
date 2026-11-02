@@ -14,6 +14,7 @@ from forecast import load_site_series, train_and_evaluate, predict_next
 
 BASE = Path(__file__).resolve().parent
 CONFIG = BASE / 'config.json'
+WORKBOOK = BASE / 'data/raw/2006/Scats Data October 2006.xls'
 BG = '#f3f6f6'
 CARD = '#ffffff'
 INK = '#173137'
@@ -33,6 +34,20 @@ def site_ids(path):
         if not reader.fieldnames or 'site_id' not in reader.fieldnames:
             raise ValueError('Traffic CSV must include site_id')
         return sorted({row['site_id'].strip() for row in reader if row.get('site_id', '').strip()})
+
+
+def workbook_site_ids(path):
+    """Read site identifiers from the supplied 2006 workbook, preserving zeros."""
+    import xlrd
+    book = xlrd.open_workbook(str(path), on_demand=True)
+    try:
+        sheet = book.sheet_by_name('Data')
+        column = sheet.row_values(1).index('SCATS Number')
+        return sorted({str(sheet.cell_value(row, column)).strip()
+                       for row in range(2, sheet.nrows)
+                       if str(sheet.cell_value(row, column)).strip()})
+    finally:
+        book.release_resources()
 
 
 class App:
@@ -57,6 +72,8 @@ class App:
         self.status = tk.StringVar(value='Ready')
         self._styles()
         self._build()
+        self.refresh_sites()
+        self.vars['origin'].trace_add('write', lambda *_: self._update_site_note())
         self.root.after(100, self._poll_events)
 
     def _styles(self):
@@ -76,10 +93,10 @@ class App:
     def _card(self, parent):
         return tk.Frame(parent, bg=CARD, highlightbackground=BORDER, highlightthickness=1, bd=0)
 
-    def _field(self, parent, title, key, row, combo=False):
+    def _field(self, parent, title, key, row, choices=None):
         self._label(parent, title, size=10, color=MUTED, bold=True).grid(row=row, column=0, sticky='w', pady=(12, 4))
-        if combo:
-            widget = ttk.Combobox(parent, textvariable=self.vars[key], values=('linear', 'lstm', 'gru'), state='readonly', style='Dashboard.TCombobox')
+        if choices is not None:
+            widget = ttk.Combobox(parent, textvariable=self.vars[key], values=choices, state='readonly', style='Dashboard.TCombobox')
         else:
             widget = ttk.Entry(parent, textvariable=self.vars[key], style='Dashboard.TEntry')
         widget.grid(row=row + 1, column=0, sticky='ew', ipady=2)
@@ -102,15 +119,18 @@ class App:
         left_body.grid_columnconfigure(0, weight=1)
         self._label(left_body, 'Prediction setup', 16, INK, True).grid(row=0, column=0, sticky='w')
         self._label(left_body, 'Choose a site and a model', 11, MUTED).grid(row=1, column=0, sticky='w', pady=(4, 0))
-        self._field(left_body, 'ORIGIN SCATS SITE', 'origin', 2)
-        self._field(left_body, 'DESTINATION SCATS SITE', 'destination', 4)
-        self._field(left_body, 'PREDICTION MODEL', 'model', 6, combo=True)
+        self.origin_menu = self._field(left_body, 'ORIGIN SCATS SITE', 'origin', 2, choices=())
+        self.destination_menu = self._field(left_body, 'DESTINATION SCATS SITE', 'destination', 4, choices=())
+        for menu in (self.origin_menu, self.destination_menu):
+            menu.configure(postcommand=self.refresh_sites)
+        self._field(left_body, 'PREDICTION MODEL', 'model', 6, choices=('linear', 'lstm', 'gru'))
         self._label(left_body, 'Linear is a proposed third model;\ntutor approval is required.', 10, MUTED).grid(row=8, column=0, sticky='w', pady=(8, 12))
         self.train_button = ttk.Button(left_body, text='1   Train selected site', style='Primary.TButton', command=self.train_one)
         self.train_button.grid(row=9, column=0, sticky='ew', pady=(0, 8))
         self.predict_button = ttk.Button(left_body, text='2   Predict traffic', style='Secondary.TButton', command=self.predict_one)
         self.predict_button.grid(row=10, column=0, sticky='ew')
-        self._label(left_body, 'Train uses the prepared data. Predict uses\nthe latest available observations.', 10, MUTED).grid(row=11, column=0, sticky='w', pady=(12, 0))
+        self.site_note = tk.StringVar()
+        tk.Label(left_body, textvariable=self.site_note, bg=CARD, fg=MUTED, font=('Arial', 10), anchor='w', justify='left', wraplength=260).grid(row=11, column=0, sticky='w', pady=(12, 0))
         ttk.Button(left_body, text='Advanced settings', style='Secondary.TButton', command=self.open_settings).grid(row=12, column=0, sticky='ew', pady=(16, 0))
         tk.Label(left_body, textvariable=self.status, bg=CARD, fg=ACCENT, font=('Arial', 10, 'bold'), anchor='w').grid(row=13, column=0, sticky='w', pady=(16, 0))
         summary = self._card(right); summary.pack(fill='x', pady=(0, 12))
@@ -135,6 +155,52 @@ class App:
         self.output = tk.Text(activity, height=3, wrap='word', bg=BG, fg=INK, relief='flat', font=('Arial', 10), highlightthickness=0)
         self.output.pack(fill='x', pady=(4, 0))
         self.log('Ready. The prepared example contains one measurement location, not a whole-intersection total.')
+
+    def refresh_sites(self):
+        """Offer workbook sites and sites in the currently selected prepared file."""
+        self.prepared_sites = []
+        issues = []
+        try:
+            self.prepared_sites = site_ids(path_for(self.vars['traffic_csv'].get().strip()))
+        except (OSError, ValueError, csv.Error) as exc:
+            issues.append(f'Prepared CSV: {exc}')
+        try:
+            workbook_sites = workbook_site_ids(WORKBOOK)
+        except (ImportError, OSError, ValueError, KeyError) as exc:
+            workbook_sites = []
+            issues.append(f'2006 workbook: {exc}')
+        sites = sorted(set(workbook_sites) | set(self.prepared_sites))
+        for menu in (self.origin_menu, self.destination_menu):
+            menu.configure(values=sites)
+        # An old configured value may not exist in either source.
+        for key in ('origin', 'destination'):
+            if self.vars[key].get() not in sites:
+                self.vars[key].set('')
+        self.site_source_error = '; '.join(issues)
+        self._update_site_note()
+
+    def _update_site_note(self):
+        origin = self.vars['origin'].get()
+        if not origin:
+            note = 'Choose a site from the list.'
+        elif origin in self.prepared_sites:
+            note = f'Site {origin} is available in the selected prepared CSV.'
+        else:
+            note = f'Site {origin} needs prepared traffic data before training or prediction.'
+        if self.site_source_error:
+            note += '\nSome site data could not be loaded; check file paths and dependencies.'
+        self.site_note.set(note)
+
+    def _origin_is_prepared(self):
+        self.refresh_sites()
+        origin = self.vars['origin'].get()
+        if origin in self.prepared_sites:
+            return True
+        detail = self.site_source_error or 'Choose a prepared CSV containing this site in Advanced settings.'
+        messagebox.showerror('Site data not ready',
+                             f'Site {origin or "(none)"} is not available for training or prediction.\n\n{detail}',
+                             parent=self.root)
+        return False
 
     def open_settings(self):
         if self.settings_window and self.settings_window.winfo_exists():
@@ -211,10 +277,12 @@ class App:
             lines.append(f"{site} {params['model'].upper()} | MAE {result['mae']:.2f} | RMSE {result['rmse']:.2f} | test {result['test_start']} to {result['test_end']}")
         return {'kind': 'training', 'message': '\n'.join(lines)}
 
-    def train_one(self): self._start(lambda p: self._train(p, [p['origin']]))
+    def train_one(self):
+        if self._origin_is_prepared(): self._start(lambda p: self._train(p, [p['origin']]))
     def train_all(self): self._start(lambda p: self._train(p, site_ids(path_for(p['traffic_csv']))))
 
     def predict_one(self):
+        if not self._origin_is_prepared(): return
         def task(params):
             _, values = load_site_series(path_for(params['traffic_csv']), params['origin'])
             value = predict_next(path_for(params['model_dir']), params['model'], params['origin'], values)
