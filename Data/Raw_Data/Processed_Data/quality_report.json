@@ -1,0 +1,32 @@
+{
+  "raw_rows": 4192,
+  "faulty_detectors_dropped": [
+    {
+      "SCATS Number": "4821",
+      "Location": "WALMER_ST N OF VICTORIA_ST",
+      "zero_share": 0.356
+    }
+  ],
+  "incomplete_site_days": 54,
+  "outage_values_flagged": 0,
+  "spike_values_flagged": 55,
+  "total_values": 119040,
+  "imputed_values": 5239,
+  "imputed_share_pct": 4.4,
+  "sites": 40,
+  "low_quality_sites": [
+    "3685",
+    "4264"
+  ],
+  "sites_missing_coords": [],
+  "validation_checks": {
+    "completeness_no_nan": true,
+    "validity_non_negative": true,
+    "uniqueness_no_duplicates": true,
+    "rows_per_site_correct": true,
+    "regular_15min_spacing": true,
+    "sites_match_metadata": true,
+    "plausible_max_flow": true,
+    "daily_rhythm_present": true
+  }
+}
