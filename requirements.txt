@@ -1,0 +1,9 @@
+# Python 3.10 - 3.12 recommended
+numpy
+pandas
+scikit-learn
+joblib
+pyyaml
+matplotlib
+tensorflow        # includes Keras (used for LSTM and GRU)
+xlrd              # reads the .xls raw data in data_processing.py

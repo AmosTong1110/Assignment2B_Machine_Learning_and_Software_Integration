@@ -1,0 +1,30 @@
+# config.yaml - default settings for training the ML models (Task 2)
+# Every script (train_lstm.py, train_all.py, plot_results.py) reads this file.
+# Change a value here instead of editing the code. Paths are relative to the project root.
+
+paths:
+  processed_dir: Data/Processed_Data   # output of data_processing.py
+  models_dir: saved_models             # trained models are saved here
+  results_dir: Results                 # metrics, predictions, plots
+
+data:
+  lags: 12             # how many past 15-min slots the model sees (12 = 3 hours)
+  # NOTE: the test set is the last 7 days (672 rows) of every site.
+  # It is fixed in evaluate.py so that ALL models are scored on the same rows.
+
+training:
+  seed: 42             # same seed -> same results every run
+  epochs: 60           # maximum number of passes over the training data
+  batch_size: 32
+  learning_rate: 0.001
+  val_days: 3          # last 3 days of the training part are used for early stopping
+  patience: 8          # stop if validation loss does not improve for 8 epochs
+
+model:
+  units: 64            # memory cells in the LSTM / GRU layer
+  dense_units: 32      # size of the small layer after the LSTM / GRU
+  dropout: 0.1         # randomly switch off 10% of units while training (reduces overfitting)
+
+plots:
+  site: "2000"         # SCATS site used for the "actual vs predicted" and loss-curve plots
+  days: 3              # how many test days to show in the prediction plot
