@@ -26,7 +26,7 @@ LAGS = 12                                   # past 12 slots = 3 hours
 SLOTS_PER_DAY = 96
 ROOT = Path(__file__).resolve().parents[2]  # project root (the folder above src/)
 DEFAULT_MODEL_DIR = ROOT / "saved_models" / "linear"
-DEFAULT_DATA_DIR = ROOT / "data" / "processed"
+DEFAULT_DATA_DIR = ROOT / "data" / "Processed_Data" if (ROOT / "data" / "Processed_Data").exists() else ROOT / "data" / "processed"
 FEATURE_NAMES = [f"lag_{i}" for i in range(LAGS, 0, -1)] + ["slot_sin", "slot_cos", "is_weekend"]
 
 

@@ -20,14 +20,25 @@ import argparse
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))   # project root, so 'Source.Models...' imports work
+ROOT = Path(__file__).resolve().parents[2]
+for _p in (ROOT, ROOT / "src", ROOT / "src" / "Models", ROOT / "Source", ROOT / "Source" / "Models"):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 
-import Source.Models.deep_common as dc
-import Source.Models.evaluate as ev
-import Source.Models.gru_model as gru
-import Source.Models.lstm_model as lstm
-import Source.Models.plot_results as plots
-import Source.Models.train_linear as train_linear
+try:
+    import src.Models.deep_common as dc
+    import src.Models.evaluate as ev
+    import src.Models.gru_model as gru
+    import src.Models.lstm_model as lstm
+    import src.Models.plot_results as plots
+    import src.Models.train_linear as train_linear
+except ImportError:
+    import deep_common as dc
+    import evaluate as ev
+    import gru_model as gru
+    import lstm_model as lstm
+    import plot_results as plots
+    import train_linear as train_linear
 
 MODELS = ["linear", "lstm", "gru"]
 

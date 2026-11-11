@@ -33,12 +33,16 @@ import pandas as pd
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]              # project root
-for _p in (ROOT, ROOT / "Source"):                      # so the imports below work
+for _p in (ROOT, ROOT / "src", ROOT / "src" / "Models", ROOT / "Source", ROOT / "Source" / "Models"):
     if str(_p) not in sys.path:                         # from any working directory
         sys.path.insert(0, str(_p))
 
-import data_processing as dp                            # noqa: E402
-import Source.Models.evaluate as ev                     # noqa: E402
+try:
+    import src.Models.data_processing as dp              # noqa: E402
+    import src.Models.evaluate as ev                     # noqa: E402
+except ImportError:
+    import data_processing as dp                         # noqa: E402
+    import evaluate as ev                                # noqa: E402
 
 SLOTS_PER_DAY = 96
 

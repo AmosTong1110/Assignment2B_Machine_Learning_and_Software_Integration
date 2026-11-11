@@ -15,10 +15,17 @@ Outputs
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))   # project root, so 'Source.Models...' imports work
+ROOT = Path(__file__).resolve().parents[2]
+for _p in (ROOT, ROOT / "src", ROOT / "src" / "Models", ROOT / "Source", ROOT / "Source" / "Models"):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 
-import Source.Models.deep_common as dc
-import Source.Models.lstm_model as lstm
+try:
+    import src.Models.deep_common as dc
+    import src.Models.lstm_model as lstm
+except ImportError:
+    import deep_common as dc
+    import lstm_model as lstm
 
 if __name__ == "__main__":
     dc.run_cli(lstm.MODEL_NAME, lstm.MODEL_KEY, lstm.LAYER)

@@ -16,14 +16,20 @@ import argparse
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))   # project root, so 'Source.Models...' imports work
+ROOT = Path(__file__).resolve().parents[2]
+for _p in (ROOT, ROOT / "src", ROOT / "src" / "Models", ROOT / "Source", ROOT / "Source" / "Models"):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 
 import matplotlib
 matplotlib.use("Agg")                       # draw to files, no window needed
 import matplotlib.pyplot as plt
 import pandas as pd
 
-import Source.Models.deep_common as dc
+try:
+    import src.Models.deep_common as dc
+except ImportError:
+    import deep_common as dc
 
 COLORS = {"Persistence (baseline)": "#9e9e9e", "Linear Regression": "#1f77b4",
           "LSTM": "#d62728", "GRU": "#2ca02c"}

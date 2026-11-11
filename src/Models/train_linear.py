@@ -16,20 +16,30 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "src"))          # so we can import data_processing
+for _p in (ROOT, ROOT / "src", ROOT / "src" / "Models", ROOT / "Source", ROOT / "Source" / "Models"):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 
 import pandas as pd
 
-import data_processing as dp
-import Source.Models.evaluate as ev
-import Source.Models.linear_regression_model as lm
+try:
+    import src.Models.data_processing as dp
+    import src.Models.evaluate as ev
+    import src.Models.linear_regression_model as lm
+except ImportError:
+    import data_processing as dp
+    import evaluate as ev
+    import linear_regression_model as lm
 
 MODEL_NAME = "Linear Regression"
 
 
-def main(processed_dir=ROOT / "data" / "processed",
-         models_dir=ROOT / "saved_models" / "linear",
-         results_dir=ROOT / "results") -> pd.DataFrame:
+def main(processed_dir=None,
+         models_dir=None,
+         results_dir=None) -> pd.DataFrame:
+    processed_dir = processed_dir or (ROOT / "data" / "Processed_Data" if (ROOT / "data" / "Processed_Data").exists() else ROOT / "data" / "processed")
+    models_dir = models_dir or (ROOT / "saved_models" / "linear")
+    results_dir = results_dir or (ROOT / "results" if (ROOT / "results").exists() else ROOT / "Results")
     clean, meta = dp.load_clean(processed_dir)
     sites = ev.get_eval_sites(meta)
     print(f"Training {MODEL_NAME} on {len(sites)} sites "
