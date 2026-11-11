@@ -7,12 +7,12 @@
       "zero_share": 0.356
     }
   ],
-  "incomplete_site_days": 54,
+  "incomplete_site_days": 56,
   "outage_values_flagged": 0,
-  "spike_values_flagged": 55,
+  "spike_values_flagged": 53,
   "total_values": 119040,
-  "imputed_values": 5239,
-  "imputed_share_pct": 4.4,
+  "imputed_values": 5429,
+  "imputed_share_pct": 4.56,
   "sites": 40,
   "low_quality_sites": [
     "3685",
