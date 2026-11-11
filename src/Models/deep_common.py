@@ -5,6 +5,9 @@ LSTM and GRU are almost the same network, so everything they share lives here
 and lstm_model.py / gru_model.py are only thin wrappers.  This keeps the
 comparison between them fair: the ONLY difference is the recurrent layer.
 
+Windows, scaler and time features come from data_processing.py (one source of
+truth, shared with the Linear Regression model).
+
 What the network sees (the same information as the Linear Regression model):
     * seq : the last 12 flow values (3 hours), scaled to 0-1      shape (12, 1)
     * aux : time of day as sin/cos + weekend flag of the target   shape (3,)
@@ -15,13 +18,14 @@ Fair-evaluation rules (same as evaluate.py / train_linear.py):
     * time-based split: the LAST 672 rows (7 days) are the test set
     * the scaler is fitted on TRAINING data only (no peeking at the test set)
     * predictions are converted back to vehicles per 15 min before scoring
+
+Run from the project root, e.g.:  python -m src.Models.train_lstm
 """
 from __future__ import annotations
 
 import argparse
 import json
 import os
-import sys
 import time
 from functools import lru_cache
 from pathlib import Path
@@ -32,25 +36,17 @@ import numpy as np
 import pandas as pd
 import yaml
 
-ROOT = Path(__file__).resolve().parents[2]              # project root
-for _p in (ROOT, ROOT / "src", ROOT / "src" / "Models", ROOT / "Source", ROOT / "Source" / "Models"):
-    if str(_p) not in sys.path:                         # from any working directory
-        sys.path.insert(0, str(_p))
+import src.Models.data_processing as dp
+import src.Models.evaluate as ev
 
-try:
-    import src.Models.data_processing as dp              # noqa: E402
-    import src.Models.evaluate as ev                     # noqa: E402
-except ImportError:
-    import data_processing as dp                         # noqa: E402
-    import evaluate as ev                                # noqa: E402
-
-SLOTS_PER_DAY = 96
+ROOT = Path(__file__).resolve().parents[2]              # project root (folder above src/)
+SLOTS_PER_DAY = dp.SLOTS_PER_DAY
 
 # --------------------------------------------------------------------------
-# Config
+# Config  (config.yaml overrides these defaults)
 # --------------------------------------------------------------------------
 DEFAULTS = {
-    "paths": {"processed_dir": "Data/Processed_Data", "models_dir": "saved_models",
+    "paths": {"processed_dir": "data/Processed_Data", "models_dir": "saved_models",
               "results_dir": "Results"},
     "data": {"lags": 12},
     "training": {"seed": 42, "epochs": 60, "batch_size": 32, "learning_rate": 0.001,
@@ -75,44 +71,6 @@ def get_path(cfg: dict, name: str) -> Path:
     """Absolute path of one entry in cfg['paths'] (relative to the project root)."""
     p = Path(cfg["paths"][name])
     return p if p.is_absolute() else ROOT / p
-
-
-# --------------------------------------------------------------------------
-# Features and scaling
-# --------------------------------------------------------------------------
-def time_features(times: pd.Series) -> np.ndarray:
-    """sin/cos of the time of day + weekend flag, shape (n, 3). (Same as the linear model.)"""
-    t = pd.to_datetime(times)
-    slot = (t.dt.hour * 4 + t.dt.minute // 15).to_numpy()
-    angle = 2 * np.pi * slot / SLOTS_PER_DAY
-    weekend = (t.dt.dayofweek >= 5).to_numpy().astype(float)
-    return np.column_stack([np.sin(angle), np.cos(angle), weekend])
-
-
-def build_windows(site_df: pd.DataFrame, lags: int):
-    """
-    Turn one site's time series into supervised samples.
-    Sample i uses the `lags` values BEFORE time[i] to predict flow[i].
-    Returns seq (n, lags), aux (n, 3), y (n,), times (n,), flow (all values, sorted).
-    """
-    g = site_df.sort_values("datetime").reset_index(drop=True)
-    v = g["flow"].to_numpy(dtype=float)
-    seq = np.stack([v[i - lags:i] for i in range(lags, len(v))])
-    aux = time_features(g["datetime"].iloc[lags:])
-    return seq, aux, v[lags:], g["datetime"].iloc[lags:].reset_index(drop=True), v
-
-
-def fit_scaler(train_flow: np.ndarray) -> dict:
-    """Min-max scaler learned from TRAINING flow only."""
-    return {"min": float(np.min(train_flow)), "max": float(np.max(train_flow))}
-
-
-def scale(x, sc: dict):
-    return (np.asarray(x, dtype=float) - sc["min"]) / max(sc["max"] - sc["min"], 1e-9)
-
-
-def unscale(x, sc: dict):
-    return np.asarray(x, dtype=float) * (sc["max"] - sc["min"]) + sc["min"]
 
 
 # --------------------------------------------------------------------------
@@ -163,11 +121,12 @@ def fit(layer_name: str, seq, aux, y, cfg: dict):
 # --------------------------------------------------------------------------
 # Save / load
 # --------------------------------------------------------------------------
-def save_model(model, scaler: dict, key: str, site: str, models_dir) -> Path:
+def save_model(model, scaler: dp.MinMax, key: str, site: str, models_dir) -> Path:
+    """Save <site>.keras and <site>_scaler.json (same JSON keys as before)."""
     path = Path(models_dir) / key / f"{site}.keras"
     path.parent.mkdir(parents=True, exist_ok=True)
     model.save(path)
-    (path.parent / f"{site}_scaler.json").write_text(json.dumps(scaler))
+    (path.parent / f"{site}_scaler.json").write_text(json.dumps(scaler.to_dict()))
     return path
 
 
@@ -176,12 +135,12 @@ def _load_cached(key: str, site: str, models_dir: str):
     from tensorflow import keras
     folder = Path(models_dir) / key
     model = keras.models.load_model(folder / f"{site}.keras")
-    scaler = json.loads((folder / f"{site}_scaler.json").read_text())
+    scaler = dp.MinMax.from_dict(json.loads((folder / f"{site}_scaler.json").read_text()))
     return model, scaler
 
 
 def load_model(key: str, site: str, models_dir):
-    """Returns (keras model, scaler dict)."""
+    """Returns (keras model, dp.MinMax scaler)."""
     return _load_cached(key, site, str(models_dir))
 
 
@@ -208,11 +167,11 @@ def train_deep(name: str, key: str, layer_name: str, cfg: dict = None,
     rows, preds, history = [], [], []
     for n, site in enumerate(sites, 1):
         g = clean[clean["scats_number"] == site]
-        seq, aux, y, times, flow = build_windows(g, lags)
+        seq, aux, y, times, flow = dp.build_supervised(g, lags)
         n_test = ev.TEST_SIZE
 
-        sc = fit_scaler(flow[:-n_test])                  # training data only
-        seq_s, y_s = scale(seq, sc)[..., None], scale(y, sc)
+        sc = dp.MinMax().fit(flow[:-n_test])             # training data only
+        seq_s, y_s = sc.transform(seq)[..., None], sc.transform(y)
         X_tr, A_tr, y_tr = seq_s[:-n_test], aux[:-n_test], y_s[:-n_test]
         X_te, A_te = seq_s[-n_test:], aux[-n_test:]
 
@@ -220,7 +179,7 @@ def train_deep(name: str, key: str, layer_name: str, cfg: dict = None,
         model, h = fit(layer_name, X_tr, A_tr, y_tr, cfg)
         seconds = time.time() - t0
 
-        y_pred = unscale(model.predict([X_te, A_te], verbose=0).reshape(-1), sc).clip(min=0)
+        y_pred = sc.inverse(model.predict([X_te, A_te], verbose=0).reshape(-1)).clip(min=0)
         truth = ev.get_test_truth(clean, site)
         assert (times.iloc[-n_test:].to_numpy() == truth["datetime"].to_numpy()).all(), \
             "test rows are not aligned with the shared answer key"
@@ -266,9 +225,9 @@ def predict(key: str, site: str, when, clean: pd.DataFrame = None, cfg: dict = N
     if len(hist) < lags or hist["datetime"].iloc[-1] != when - pd.Timedelta("15min"):
         raise ValueError(f"Site {site}: need the {lags} intervals right before {when} in the data")
     model, sc = load_model(key, site, get_path(cfg, "models_dir"))
-    seq = scale(hist["flow"].to_numpy(), sc).reshape(1, lags, 1)
-    aux = time_features(pd.Series([when]))
-    y = unscale(model.predict([seq, aux], verbose=0).reshape(-1), sc)[0]
+    seq = sc.transform(hist["flow"].to_numpy()).reshape(1, lags, 1)
+    aux = dp.time_features(pd.DatetimeIndex([when]))
+    y = sc.inverse(model.predict([seq, aux], verbose=0).reshape(-1))[0]
     return float(max(0.0, y))
 
 

@@ -11,10 +11,7 @@ Public interface (same as linear_regression_model.py, so Task 4 can swap models)
 """
 from __future__ import annotations
 
-try:
-    import src.Models.deep_common as dc
-except ImportError:
-    import Source.Models.deep_common as dc
+import src.Models.deep_common as dc
 
 MODEL_NAME = "GRU"       # name that appears in the results files / plots
 MODEL_KEY = "gru"        # used for file and folder names

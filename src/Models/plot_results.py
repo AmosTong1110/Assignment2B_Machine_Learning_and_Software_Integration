@@ -1,7 +1,7 @@
 """
 plot_results.py  -  figures for the report (Insights / Testing sections)
 =======================================================================
-Run from the project root:      python Source/Models/plot_results.py
+Run from the project root:      python -m src.Models.plot_results
 (train_all.py also calls it at the end.)  Pictures are saved in Results/plots/.
 
     1_model_error_comparison.png   mean MAE and RMSE of every model
@@ -13,23 +13,13 @@ Run from the project root:      python Source/Models/plot_results.py
 from __future__ import annotations
 
 import argparse
-import sys
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "src", ROOT / "src" / "Models", ROOT / "Source", ROOT / "Source" / "Models"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
 import matplotlib
 matplotlib.use("Agg")                       # draw to files, no window needed
 import matplotlib.pyplot as plt
 import pandas as pd
 
-try:
-    import src.Models.deep_common as dc
-except ImportError:
-    import deep_common as dc
+import src.Models.deep_common as dc
 
 COLORS = {"Persistence (baseline)": "#9e9e9e", "Linear Regression": "#1f77b4",
           "LSTM": "#d62728", "GRU": "#2ca02c"}
@@ -73,7 +63,8 @@ def main(cfg: dict = None) -> None:
     # ---------- 2. MAE spread across sites ----------
     fig, ax = plt.subplots(figsize=(8, 5))
     bp = ax.boxplot([metrics.loc[metrics["model"] == m, "mae"] for m in models],
-                    patch_artist=True, tick_labels=models)
+                    patch_artist=True)
+    ax.set_xticks(range(1, len(models) + 1), labels=models)   # works on every matplotlib >= 3.5
     for patch, c in zip(bp["boxes"], colors):
         patch.set_facecolor(c); patch.set_alpha(0.7)
     ax.set_ylabel("MAE per site (vehicles per 15 min)")

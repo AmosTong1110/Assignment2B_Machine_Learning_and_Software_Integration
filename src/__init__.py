@@ -1,2 +1,0 @@
-"""Root package for TBRGS."""
-

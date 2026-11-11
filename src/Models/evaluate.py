@@ -6,7 +6,7 @@ rows, with the SAME metrics, in the SAME units, and results are written in the
 SAME file format.  That is what makes the model comparison fair.
 
 Rules (do not change them without telling the team):
-  * Data         : data/processed/scats_clean_15min.csv  (from data_processing.py)
+  * Data         : data/Processed_Data/scats_clean_15min.csv  (from data_processing.py)
   * Test set     : the LAST 7 days of every site (672 rows of 15 minutes)
   * Sites        : all sites except those marked low_quality in site_metadata.csv
   * Metrics      : MAE and RMSE in VEHICLES PER 15 MINUTES (not scaled 0-1!)
@@ -15,18 +15,19 @@ Rules (do not change them without telling the team):
 
 How a model owner uses this file (example for a PyTorch model):
 
-    import evaluate as ev
-    clean, meta = dp.load_clean("data/processed")
+    import src.Models.data_processing as dp
+    import src.Models.evaluate as ev
+    clean, meta = dp.load_clean("data/Processed_Data")
     rows = []
     for site in ev.get_eval_sites(meta):
         truth = ev.get_test_truth(clean, site)       # the answer key (672 rows)
         y_pred = ...your model predictions, 672 numbers, in vehicles/15min...
         rows.append(ev.evaluate_site("LSTM", site, y_pred, truth, train_seconds))
-    ev.save_results(rows, "results/lstm_metrics.csv")
+    ev.save_results(rows, "Results/lstm_metrics.csv")
 
-Compare all models:
-    python src/models/evaluate.py results/linear_metrics.csv results/lstm_metrics.csv \
-                                  results/gru_metrics.csv results/baseline_metrics.csv
+Compare all models (run from the project root):
+    python -m src.Models.evaluate Results/linear_metrics.csv Results/lstm_metrics.csv \
+                                  Results/gru_metrics.csv Results/baseline_metrics.csv
 """
 from __future__ import annotations
 
@@ -151,8 +152,8 @@ def compare(paths: list[str]) -> tuple[pd.DataFrame, pd.DataFrame]:
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Compare model result CSV files")
-    ap.add_argument("files", nargs="+", help="result CSVs, e.g. results/linear_metrics.csv ...")
-    ap.add_argument("--out", default="results/model_comparison.csv")
+    ap.add_argument("files", nargs="+", help="result CSVs, e.g. Results/linear_metrics.csv ...")
+    ap.add_argument("--out", default="Results/model_comparison.csv")
     args = ap.parse_args()
     summary, per_site = compare(args.files)
     print(summary.to_string())

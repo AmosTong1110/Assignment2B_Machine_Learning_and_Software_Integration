@@ -2,7 +2,8 @@
 data_processing.py  -  COS30019 Assignment 2B (TBRGS)
 =====================================================
 Turns the raw VicRoads file  Scats_Data_October_2006.xls  into a clean,
-validated, ML-ready dataset.
+validated, ML-ready dataset.  It is also the SINGLE SOURCE OF TRUTH for the
+helpers every model shares (time features, scaler, supervised windows).
 
 Pipeline (each step is its own function so it can be tested and explained):
 
@@ -13,16 +14,19 @@ Pipeline (each step is its own function so it can be tested and explained):
     fill_gaps()             interpolate short gaps, profile-fill long gaps
     build_site_metadata()   one clean lat/lon row per site
     validate()              assert the data meets the quality checklist
-    make_datasets()         chronological train/val/test split + scaling + windows
 
-Run:   python data_processing.py --xls Scats_Data_October_2006.xls --out clean
+Shared helpers used by linear_regression_model.py, deep_common.py, ...:
 
-CHANGES vs the previous version are marked with  "# FIX"  comments:
-    FIX 1  build_site_series : flag days with MORE detectors than usual too (3001, 2-3 Oct)
-    FIX 2  fill_gaps         : only interpolate gaps that are really <= 1 hour long
-    FIX 3  make_datasets     : add a validation split, keep the 'imputed' flag,
-                               optional time-of-day features
-    FIX 4  validate          : tighter plausible-flow limit
+    time_features()         sin/cos time of day + weekend flag
+    MinMax                  0-1 scaler (fit on TRAIN data only), JSON-friendly
+    build_supervised()      one site's series -> (seq, aux, y, times, flow)
+
+Run (from the project root):
+    python -m src.Models.data_processing --xls data/Raw_Data/Scats_Data_October_2006.xls \
+                                         --out data/Processed_Data
+
+Train / validation / test split rules live in config.yaml and evaluate.py
+(test = last 7 days, validation = last `val_days` of the training part), NOT here.
 """
 from __future__ import annotations
 
@@ -35,6 +39,8 @@ import pandas as pd
 
 # --------------------------------------------------------------------------
 # Configuration (keep every "magic number" here, so the report can cite it)
+# Only CLEANING settings live here. Modelling settings (lags, epochs, ...)
+# are in config.yaml.
 # --------------------------------------------------------------------------
 CONFIG = {
     "sheet": "Data",
@@ -47,12 +53,10 @@ CONFIG = {
     "spike_min_ratio": 1.5,       # ...and at least 50% above the typical value
     "max_interp_gap": 4,          # interpolate gaps up to 4 slots (1h)
     "max_imputed_share": 0.25,    # site with >25% imputed values = low quality
-    "max_plausible_flow": 1600,   # FIX 4: veh / 15 min at one site (observed max ~1,400)
-    "window": 12,                 # use past 12 slots (3h) as model input
-    "val_days": 3,                # FIX 3: last 3 days BEFORE the test set = validation
-    "test_days": 7,               # last 7 days = test set
+    "max_plausible_flow": 1600,   # veh / 15 min at one site (observed max ~1,400)
 }
-FLOW_COLS = [f"V{i:02d}" for i in range(CONFIG["slots_per_day"])]
+SLOTS_PER_DAY = CONFIG["slots_per_day"]
+FLOW_COLS = [f"V{i:02d}" for i in range(SLOTS_PER_DAY)]
 
 
 # --------------------------------------------------------------------------
@@ -113,7 +117,6 @@ def build_site_series(df: pd.DataFrame):
     days = pd.date_range(df["day"].min(), df["day"].max(), freq="D")
     n_rows = df.groupby(["SCATS Number", "day"]).size().unstack(0).reindex(days)
     usual = n_rows.apply(lambda s: s.mode().iloc[0])          # modal #detectors
-    # FIX 1: was  n_rows.lt(usual, axis=1)  which ignored days with EXTRA detectors
     incomplete = n_rows.ne(usual, axis=1) | n_rows.isna()     # days x sites
 
     series = {}
@@ -183,13 +186,13 @@ def fill_gaps(series: dict, days: pd.DatetimeIndex) -> pd.DataFrame:
     Every repaired value is flagged with imputed=1 so it stays transparent.
     """
     frames = []
-    index = pd.date_range(days[0], periods=len(days) * CONFIG["slots_per_day"], freq="15min")
+    index = pd.date_range(days[0], periods=len(days) * SLOTS_PER_DAY, freq="15min")
     for site, arr in series.items():
         s = pd.Series(arr.reshape(-1), index=index)
         was_nan = s.isna()
 
-        # FIX 2: pandas' interpolate(limit=4) also fills the FIRST 4 slots of a long
-        # gap. Measure each gap and only interpolate the ones that are really short.
+        # pandas' interpolate(limit=4) also fills the FIRST 4 slots of a long gap.
+        # Measure each gap and only interpolate the ones that are really short.
         gap_id = was_nan.ne(was_nan.shift()).cumsum()               # id per run of NaN/non-NaN
         gap_len = was_nan.groupby(gap_id).transform("sum")          # length of the run
         short_gap = was_nan & (gap_len <= CONFIG["max_interp_gap"])
@@ -237,7 +240,7 @@ def build_site_metadata(raw: pd.DataFrame, clean: pd.DataFrame, log: dict) -> pd
 def validate(clean: pd.DataFrame, meta: pd.DataFrame) -> dict:
     """Raise AssertionError if the cleaned data breaks any quality rule."""
     n_days = clean["datetime"].dt.normalize().nunique()
-    expected = n_days * CONFIG["slots_per_day"]
+    expected = n_days * SLOTS_PER_DAY
     checks = {}
 
     checks["completeness_no_nan"] = not clean["flow"].isna().any()
@@ -247,7 +250,6 @@ def validate(clean: pd.DataFrame, meta: pd.DataFrame) -> dict:
     gaps = clean.sort_values(["scats_number", "datetime"]).groupby("scats_number")["datetime"].diff().dropna()
     checks["regular_15min_spacing"] = bool((gaps == pd.Timedelta("15min")).all())
     checks["sites_match_metadata"] = set(clean["scats_number"]) == set(meta["scats_number"])
-    # FIX 4: old limit (3000) could never fail; real max is ~1,400 veh/15min
     checks["plausible_max_flow"] = bool(clean["flow"].max() < CONFIG["max_plausible_flow"])
 
     # plausibility: daytime busier than night for most sites (daily rhythm)
@@ -261,7 +263,7 @@ def validate(clean: pd.DataFrame, meta: pd.DataFrame) -> dict:
     return checks
 
 
-def load_clean(out_dir: str = "clean"):
+def load_clean(out_dir: str = "data/Processed_Data"):
     """Reload the saved files with correct types (keeps the '0970' leading zero)."""
     clean = pd.read_csv(Path(out_dir) / "scats_clean_15min.csv",
                         dtype={"scats_number": str}, parse_dates=["datetime"])
@@ -270,91 +272,71 @@ def load_clean(out_dir: str = "clean"):
 
 
 # --------------------------------------------------------------------------
-# 8. ML-ready arrays  (split by TIME, scale on TRAIN only, sliding windows)
+# 8. Shared helpers for ALL models (Linear, LSTM, GRU, ...)
 # --------------------------------------------------------------------------
 class MinMax:
-    """Tiny MinMax scaler (fitted on train data only -> no data leakage)."""
+    """
+    Tiny MinMax scaler. Fit it on TRAIN data only -> no data leakage.
+    to_dict()/from_dict() let a model save it as JSON next to the weights
+    (same keys {"min", "max"} as the scaler files already in saved_models/).
+    """
     def fit(self, x):
         self.lo, self.hi = float(np.min(x)), float(np.max(x))
         return self
+
     def transform(self, x):
-        return (np.asarray(x) - self.lo) / (self.hi - self.lo + 1e-9)
+        return (np.asarray(x, dtype=float) - self.lo) / (self.hi - self.lo + 1e-9)
+
     def inverse(self, x):
-        return np.asarray(x) * (self.hi - self.lo + 1e-9) + self.lo
+        return np.asarray(x, dtype=float) * (self.hi - self.lo + 1e-9) + self.lo
+
+    def to_dict(self) -> dict:
+        return {"min": self.lo, "max": self.hi}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "MinMax":
+        s = cls()
+        s.lo, s.hi = float(d["min"]), float(d["max"])
+        return s
 
 
 def time_features(index: pd.DatetimeIndex) -> np.ndarray:
-    """Optional extra inputs: time of day as sin/cos (so 23:45 is 'next to' 00:00)
-    and a weekend flag. Shape (n, 3)."""
-    tod = (index.hour * 60 + index.minute) / (24 * 60)
-    return np.column_stack([np.sin(2 * np.pi * tod),
-                            np.cos(2 * np.pi * tod),
-                            (index.dayofweek >= 5).astype(float)])
-
-
-def make_windows(features: np.ndarray, window: int, imputed: np.ndarray = None):
     """
-    features: (n, F) array, column 0 = scaled flow (the thing we predict).
-    features[t-window : t]  ->  flow at t.
-    Returns X (n-window, window, F), y (n-window,), imputed_target (n-window,) or None.
+    Time of day as sin/cos (so 23:45 is 'next to' 00:00) + weekend flag.
+    Shape (n, 3): [sin, cos, is_weekend].  Pass the TARGET times.
     """
-    n = len(features) - window
-    X = np.stack([features[i:i + window] for i in range(n)]).astype("float32")
-    y = features[window:, 0].astype("float32")
-    imp = None if imputed is None else np.asarray(imputed[window:], dtype=bool)
-    return X, y, imp
+    index = pd.DatetimeIndex(index)
+    slot = index.hour * 4 + index.minute // 15
+    angle = 2 * np.pi * slot / SLOTS_PER_DAY
+    weekend = (index.dayofweek >= 5).astype(float)
+    return np.column_stack([np.sin(angle), np.cos(angle), weekend])
 
 
-def make_datasets(clean: pd.DataFrame, window: int = None, test_days: int = None,
-                  val_days: int = None, use_time_features: bool = False) -> dict:
+def build_supervised(site_df: pd.DataFrame, lags: int = 12):
     """
-    Per-site arrays, ready for Keras LSTM / GRU / etc.
+    Turn ONE site's series into supervised samples (used by every model).
+    Sample i uses the `lags` flow values BEFORE time[i] to predict flow[i];
+    its `aux` features describe the TARGET time (time of day + weekend).
 
-    Chronological split (no shuffling!):   [ train | validation | test ]
-        test  = last `test_days` days
-        val   = the `val_days` days just before the test set  (use for tuning / early stopping)
-        train = everything before that
-    The scaler is fitted on TRAIN only. Validation/test windows may look back into
-    the previous period for their INPUT (that is fine); their TARGETS stay in-period.
-
-    Returned per site:  X_train/y_train, X_val/y_val, X_test/y_test, scaler, and
-    imputed_train/val/test = True where the TARGET value was filled in (not measured),
-    so you can report scores with and without imputed targets.
+    Returns
+        seq    (n, lags)  past flows, oldest first, in vehicles / 15 min (NOT scaled)
+        aux    (n, 3)     time features of the target time
+        y      (n,)       flow to predict
+        times  (n,)       target datetimes (Series)
+        flow   (N,)       the full sorted flow series (to fit the scaler on train rows)
     """
-    window = window or CONFIG["window"]
-    test_days = test_days or CONFIG["test_days"]
-    val_days = CONFIG["val_days"] if val_days is None else val_days   # FIX 3
-    per_day = CONFIG["slots_per_day"]
-    out = {}
-    for site, g in clean.sort_values("datetime").groupby("scats_number"):
-        v = g["flow"].to_numpy()
-        imp = g["imputed"].to_numpy().astype(bool)
-        cut_test = len(v) - test_days * per_day                      # time-based split
-        cut_val = cut_test - val_days * per_day
-        assert cut_val > window, "not enough training data for this split"
-
-        scaler = MinMax().fit(v[:cut_val])                           # train only!
-        feats = scaler.transform(v)[:, None]                         # (n, 1)
-        if use_time_features:
-            feats = np.column_stack([feats, time_features(pd.DatetimeIndex(g["datetime"]))])
-
-        X_tr, y_tr, i_tr = make_windows(feats[:cut_val], window, imp[:cut_val])
-        X_va, y_va, i_va = make_windows(feats[cut_val - window:cut_test], window,
-                                        imp[cut_val - window:cut_test])
-        X_te, y_te, i_te = make_windows(feats[cut_test - window:], window, imp[cut_test - window:])
-        out[site] = {
-            "X_train": X_tr, "y_train": y_tr, "imputed_train": i_tr,
-            "X_val": X_va, "y_val": y_va, "imputed_val": i_va,
-            "X_test": X_te, "y_test": y_te, "imputed_test": i_te,
-            "scaler": scaler,
-        }
-    return out
+    g = site_df.sort_values("datetime").reset_index(drop=True)
+    v = g["flow"].to_numpy(dtype=float)
+    seq = np.stack([v[i - lags:i] for i in range(lags, len(v))])
+    times = g["datetime"].iloc[lags:].reset_index(drop=True)
+    aux = time_features(pd.DatetimeIndex(times))
+    return seq, aux, v[lags:], times, v
 
 
 # --------------------------------------------------------------------------
 # Main: run the whole pipeline
 # --------------------------------------------------------------------------
-def run_pipeline(xls_path: str, out_dir: str = "clean") -> dict:
+def run_pipeline(xls_path: str, out_dir: str = "data/Processed_Data") -> dict:
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
 
@@ -389,7 +371,7 @@ def run_pipeline(xls_path: str, out_dir: str = "clean") -> dict:
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Clean the SCATS October 2006 dataset")
-    ap.add_argument("--xls", default="Scats_Data_October_2006.xls")
-    ap.add_argument("--out", default="clean")
+    ap.add_argument("--xls", default="data/Raw_Data/Scats_Data_October_2006.xls")
+    ap.add_argument("--out", default="data/Processed_Data")
     args = ap.parse_args()
     print(json.dumps(run_pipeline(args.xls, args.out), indent=2))

@@ -3,7 +3,7 @@
 # Change a value here instead of editing the code. Paths are relative to the project root.
 
 paths:
-  processed_dir: Data/Processed_Data   # output of data_processing.py
+  processed_dir: data/Processed_Data   # output of data_processing.py
   models_dir: saved_models             # trained models are saved here
   results_dir: Results                 # metrics, predictions, plots
 

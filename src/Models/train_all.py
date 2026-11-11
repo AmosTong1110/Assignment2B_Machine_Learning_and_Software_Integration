@@ -1,11 +1,11 @@
 """
 train_all.py  -  train every model, compare them, and draw the plots (one command)
 =================================================================================
-Run from the project root:      python Source/Models/train_all.py
+Run from the project root:      python -m src.Models.train_all
 
-    python Source/Models/train_all.py --only gru            # just one model
-    python Source/Models/train_all.py --sites 2000 3002 --epochs 5   # quick smoke test
-    python Source/Models/train_all.py --skip-training       # only compare + plot existing results
+    python -m src.Models.train_all --only gru                        # just one model
+    python -m src.Models.train_all --sites 2000 3002 --epochs 5      # quick smoke test
+    python -m src.Models.train_all --skip-training                   # only compare + plot existing results
 
 Steps
     1. Linear Regression (+ the 'next = last value' baseline)   -> train_linear.py
@@ -17,28 +17,13 @@ Steps
 from __future__ import annotations
 
 import argparse
-import sys
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "src", ROOT / "src" / "Models", ROOT / "Source", ROOT / "Source" / "Models"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
-
-try:
-    import src.Models.deep_common as dc
-    import src.Models.evaluate as ev
-    import src.Models.gru_model as gru
-    import src.Models.lstm_model as lstm
-    import src.Models.plot_results as plots
-    import src.Models.train_linear as train_linear
-except ImportError:
-    import deep_common as dc
-    import evaluate as ev
-    import gru_model as gru
-    import lstm_model as lstm
-    import plot_results as plots
-    import train_linear as train_linear
+import src.Models.deep_common as dc
+import src.Models.evaluate as ev
+import src.Models.gru_model as gru
+import src.Models.lstm_model as lstm
+import src.Models.plot_results as plots
+import src.Models.train_linear as train_linear
 
 MODELS = ["linear", "lstm", "gru"]
 
@@ -60,9 +45,7 @@ def main() -> None:
     if not args.skip_training:
         if "linear" in args.only:
             print("\n=== Linear Regression ===")
-            train_linear.main(processed_dir=dc.get_path(cfg, "processed_dir"),
-                              models_dir=dc.get_path(cfg, "models_dir") / "linear",
-                              results_dir=results)
+            train_linear.main(cfg=cfg)
         if "lstm" in args.only:
             print("\n=== LSTM ===")
             lstm.train(cfg, args.sites)
