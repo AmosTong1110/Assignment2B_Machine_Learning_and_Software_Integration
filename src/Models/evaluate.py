@@ -10,8 +10,12 @@ Rules (do not change them without telling the team):
   * Test set     : the LAST 7 days of every site (672 rows of 15 minutes)
   * Sites        : all sites except those marked low_quality in site_metadata.csv
   * Metrics      : MAE and RMSE in VEHICLES PER 15 MINUTES (not scaled 0-1!)
+                   NRMSE = RMSE / mean(actual flow)  (a fraction; 0.10 = 10% error)
+                   NRMSE uses the same definition as the course example
+                   (regression_tree_2B.ipynb), so errors of busy and quiet sites
+                   can be compared.
   * Scored on    : real measurements only (imputed == 0)
-  * Result file  : columns  model, scats_number, mae, rmse, n_eval, train_seconds
+  * Result file  : columns  model, scats_number, mae, rmse, nrmse, n_eval, train_seconds
 
 How a model owner uses this file (example for a PyTorch model):
 
@@ -40,7 +44,7 @@ import pandas as pd
 SLOTS_PER_DAY = 96
 TEST_DAYS = 7
 TEST_SIZE = TEST_DAYS * SLOTS_PER_DAY          # 672 test rows per site
-RESULT_COLUMNS = ["model", "scats_number", "mae", "rmse", "n_eval", "train_seconds"]
+RESULT_COLUMNS = ["model", "scats_number", "mae", "rmse", "nrmse", "n_eval", "train_seconds"]
 
 
 # --------------------------------------------------------------------------
@@ -80,6 +84,16 @@ def rmse(y_true, y_pred) -> float:
     return float(np.sqrt(np.mean((np.asarray(y_true) - np.asarray(y_pred)) ** 2)))
 
 
+def nrmse(y_true, y_pred) -> float:
+    """
+    Normalised RMSE = RMSE / mean(actual flow).
+    A fraction: 0.10 means the typical error is 10% of the average flow.
+    Lower is better. Same formula as the course example (regression_tree_2B.ipynb).
+    """
+    mean_flow = float(np.mean(np.asarray(y_true)))
+    return rmse(y_true, y_pred) / mean_flow if mean_flow > 0 else float("nan")
+
+
 def evaluate_site(model: str, site: str, y_pred, truth: pd.DataFrame,
                   train_seconds: float = np.nan) -> dict:
     """
@@ -106,6 +120,7 @@ def evaluate_site(model: str, site: str, y_pred, truth: pd.DataFrame,
         "scats_number": site,
         "mae": mae(y_true[keep], y_pred[keep]),
         "rmse": rmse(y_true[keep], y_pred[keep]),
+        "nrmse": nrmse(y_true[keep], y_pred[keep]),
         "n_eval": int(keep.sum()),
         "train_seconds": float(train_seconds),
     }
@@ -141,10 +156,16 @@ def compare(paths: list[str]) -> tuple[pd.DataFrame, pd.DataFrame]:
     common = set.intersection(*[set(g["scats_number"]) for _, g in df.groupby("model")])
     df = df[df["scats_number"].isin(common)]
 
-    summary = (df.groupby("model")
-                 .agg(sites=("scats_number", "nunique"), mae=("mae", "mean"),
-                      rmse=("rmse", "mean"), train_seconds=("train_seconds", "sum"))
-                 .sort_values("mae").round(2))
+    agg = {"sites": ("scats_number", "nunique"), "mae": ("mae", "mean"), "rmse": ("rmse", "mean")}
+    if "nrmse" in df.columns:                       # older result files may not have it yet
+        agg["nrmse"] = ("nrmse", "mean")
+    agg["train_seconds"] = ("train_seconds", "sum")
+    summary = df.groupby("model").agg(**agg).sort_values("mae")
+    summary[["mae", "rmse"]] = summary[["mae", "rmse"]].round(2)
+    summary["train_seconds"] = summary["train_seconds"].round(2)
+    if "nrmse" in summary:
+        summary["nrmse"] = summary["nrmse"].round(3)
+
     per_site = df.pivot(index="scats_number", columns="model", values="mae").round(2)
     summary["best_on_n_sites"] = per_site.idxmin(axis=1).value_counts().reindex(summary.index).fillna(0).astype(int)
     return summary, per_site

@@ -4,11 +4,12 @@ plot_results.py  -  figures for the report (Insights / Testing sections)
 Run from the project root:      python -m src.Models.plot_results
 (train_all.py also calls it at the end.)  Pictures are saved in Results/plots/.
 
-    1_model_error_comparison.png   mean MAE and RMSE of every model
-    2_mae_per_site_boxplot.png     spread of the MAE across sites
-    3_actual_vs_predicted.png      real flow vs each model's prediction for one site
-    4_training_time.png            how long each model took to train (all sites)
-    5_learning_curves.png          LSTM vs GRU training / validation loss for one site
+    1_model_error_comparison.png   mean MAE / RMSE (left) and mean NRMSE in % (right)
+    2_actual_vs_predicted.png      real flow vs each model's prediction for one site
+    3_training_time.png            how long each model took to train (all sites)
+    4_learning_curves.png          LSTM vs GRU training / validation loss for one site
+
+NRMSE = RMSE / mean(actual flow), shown as a percentage (lower is better).
 """
 from __future__ import annotations
 
@@ -48,31 +49,34 @@ def main(cfg: dict = None) -> None:
     common = set.intersection(*[set(g["scats_number"]) for _, g in metrics.groupby("model")])
     metrics = metrics[metrics["scats_number"].isin(common)]
     models = _models_in(metrics)
-    colors = [COLORS.get(m, "#7f7f7f") for m in models]
 
-    # ---------- 1. mean MAE / RMSE ----------
+    # ---------- 1. mean MAE / RMSE  (+ NRMSE in %, if the result files have it) ----------
+    has_nrmse = "nrmse" in metrics.columns and metrics["nrmse"].notna().all()
+    if has_nrmse:
+        fig, (ax, ax2) = plt.subplots(1, 2, figsize=(13, 5), gridspec_kw={"width_ratios": [2, 1]})
+    else:
+        fig, ax = plt.subplots(figsize=(8, 5))
+        ax2 = None
+
     mean = metrics.groupby("model")[["mae", "rmse"]].mean().reindex(models)
-    ax = mean.plot.bar(figsize=(8, 5), color=["#4c72b0", "#dd8452"], rot=15)
+    mean.plot.bar(ax=ax, color=["#4c72b0", "#dd8452"], rot=15)
     for c in ax.containers:
         ax.bar_label(c, fmt="%.1f", padding=2)
     ax.set_ylabel("error (vehicles per 15 min)")
     ax.set_xlabel("")
-    ax.set_title(f"Mean prediction error on the last 7 days ({len(common)} sites, lower is better)")
-    plt.tight_layout(); plt.savefig(out / "1_model_error_comparison.png", dpi=150); plt.close()
+    ax.set_title("MAE and RMSE (lower is better)")
 
-    # ---------- 2. MAE spread across sites ----------
-    fig, ax = plt.subplots(figsize=(8, 5))
-    bp = ax.boxplot([metrics.loc[metrics["model"] == m, "mae"] for m in models],
-                    patch_artist=True)
-    ax.set_xticks(range(1, len(models) + 1), labels=models)   # works on every matplotlib >= 3.5
-    for patch, c in zip(bp["boxes"], colors):
-        patch.set_facecolor(c); patch.set_alpha(0.7)
-    ax.set_ylabel("MAE per site (vehicles per 15 min)")
-    ax.set_title("How the error varies between SCATS sites")
-    plt.xticks(rotation=15); plt.tight_layout()
-    plt.savefig(out / "2_mae_per_site_boxplot.png", dpi=150); plt.close()
+    if ax2 is not None:
+        pct = metrics.groupby("model")["nrmse"].mean().reindex(models) * 100
+        bars = ax2.bar(range(len(models)), pct.values, color=[COLORS.get(m, "#7f7f7f") for m in models])
+        ax2.bar_label(bars, fmt="%.1f%%", padding=2)
+        ax2.set_xticks(range(len(models)), labels=models, rotation=15)
+        ax2.set_ylabel("NRMSE (% of mean flow)")
+        ax2.set_title("NRMSE (lower is better)")
+    fig.suptitle(f"Mean prediction error on the last 7 days ({len(common)} sites)")
+    fig.tight_layout(); fig.savefig(out / "1_model_error_comparison.png", dpi=150); plt.close(fig)
 
-    # ---------- 3. actual vs predicted for one site ----------
+    # ---------- 2. actual vs predicted for one site ----------
     preds = [_read(results / f, parse_dates=["datetime"]) for f in
              ("linear_predictions.csv", "lstm_predictions.csv", "gru_predictions.csv")]
     preds = pd.concat([p for p in preds if p is not None], ignore_index=True)
@@ -90,9 +94,9 @@ def main(cfg: dict = None) -> None:
     ax.set_ylabel("flow (vehicles per 15 min)")
     ax.set_title(f"Actual vs predicted traffic flow - SCATS site {site}")
     ax.legend(); fig.autofmt_xdate(); plt.tight_layout()
-    plt.savefig(out / "3_actual_vs_predicted.png", dpi=150); plt.close()
+    plt.savefig(out / "2_actual_vs_predicted.png", dpi=150); plt.close()
 
-    # ---------- 4. training time ----------
+    # ---------- 3. training time ----------
     t = (metrics[metrics["model"] != "Persistence (baseline)"]
          .groupby("model")["train_seconds"].sum())
     fig, ax = plt.subplots(figsize=(7, 4.5))
@@ -101,9 +105,9 @@ def main(cfg: dict = None) -> None:
         ax.text(i, v, f"{v:.1f}s", ha="center", va="bottom")
     ax.set_ylabel(f"total training time, {len(common)} sites (seconds)")
     ax.set_title("Training cost")
-    plt.tight_layout(); plt.savefig(out / "4_training_time.png", dpi=150); plt.close()
+    plt.tight_layout(); plt.savefig(out / "3_training_time.png", dpi=150); plt.close()
 
-    # ---------- 5. learning curves (LSTM vs GRU) ----------
+    # ---------- 4. learning curves (LSTM vs GRU) ----------
     hist = [_read(results / f) for f in ("lstm_history.csv", "gru_history.csv")]
     hist = pd.concat([h for h in hist if h is not None], ignore_index=True) if any(
         h is not None for h in hist) else None
@@ -117,7 +121,7 @@ def main(cfg: dict = None) -> None:
         ax.set_xlabel("epoch"); ax.set_ylabel("loss (MSE, scaled 0-1)")
         ax.set_title(f"Learning curves - site {site}")
         ax.legend(); plt.tight_layout()
-        plt.savefig(out / "5_learning_curves.png", dpi=150); plt.close()
+        plt.savefig(out / "4_learning_curves.png", dpi=150); plt.close()
 
     print(f"Saved plots to {out}")
 
