@@ -1,5 +1,5 @@
-model,sites,mae,rmse,train_seconds,best_on_n_sites
-GRU,38,24.25,33.1,640.67,19
-LSTM,38,24.34,33.03,706.06,19
-Linear Regression,38,29.58,40.07,0.47,0
-Persistence (baseline),38,33.93,47.62,0.0,0
+model,sites,mae,rmse,nrmse,train_seconds,best_on_n_sites
+GRU,38,24.24,33.1,0.096,565.31,19
+LSTM,38,24.34,33.03,0.096,694.65,19
+Linear Regression,38,29.58,40.07,0.117,0.13,0
+Persistence (baseline),38,33.93,47.62,0.138,0.0,0
