@@ -25,6 +25,15 @@ model:
   dense_units: 32      # size of the small layer after the LSTM / GRU
   dropout: 0.1         # randomly switch off 10% of units while training (reduces overfitting)
 
+travel_time:           # Task 3 - flow -> speed -> travel time (Traffic Flow to Travel Time Conversion v1.0.pdf)
+  speed_limit_kmh: 60        # same limit on every link (assignment assumption i)
+  capacity_flow_vph: 1500    # turning point of the flow-speed parabola ...
+  capacity_speed_kmh: 32     # ... reached at this speed
+  intersection_delay_s: 30   # average delay per controlled intersection (assumption iii)
+  flow_site: origin          # origin | destination - whose flow sets the speed of edge A->B
+  flow_mode: per_detector    # per_detector (site total / no. of detectors) | total
+  default_model: gru         # linear | lstm | gru | actual (measured flow, for testing)
+
 plots:
   site: "2000"         # SCATS site used for the "actual vs predicted" and loss-curve plots
   days: 3              # how many test days to show in the prediction plot

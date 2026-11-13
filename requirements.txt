@@ -1,9 +1,12 @@
-# Python 3.10 - 3.12 recommended
-numpy
-pandas
-scikit-learn
-joblib
-pyyaml
-matplotlib
-tensorflow        # includes Keras (used for LSTM and GRU)
-xlrd              # reads the .xls raw data in data_processing.py
+# Python 3.14  (the whole team must use the same versions, or saved models will not load)
+#   Set up with:   bash setup_env.sh      (NOT plain "pip install -r" - see the keras note below)
+numpy==2.5.4
+pandas==3.1.1
+scikit-learn==1.9.1     # must match the version that saved saved_models/linear/*.joblib
+joblib==1.6.0
+pyyaml==6.0.3
+matplotlib==3.11.2
+tensorflow==2.22.0rc0   # only a release candidate exists for Python 3.14 so far
+keras==3.15.1           # must match the version that saved saved_models/{lstm,gru}/*.keras
+                        # (tensorflow rc0 pulls in 'keras-nightly' - this pin replaces it)
+xlrd==2.0.2             # reads the .xls raw data in data_processing.py
