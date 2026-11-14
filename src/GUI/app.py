@@ -28,6 +28,7 @@ from matplotlib.figure import Figure
 import src.Models.deep_common as dc
 from src.Routing import edge_costs as ec
 from src.Routing import route_finder as rf
+from src.GUI.train_dialog import TrainDialog
 from src.Routing.graph_builder import load_edges, load_nodes
 from src.Search import SEARCH_METHODS
 
@@ -126,6 +127,8 @@ class RouteApp(ttk.Frame):
             "TensorFlow is not installed, so GRU and LSTM are hidden. Linear regression still works."
         self.status = ttk.Label(left, text=start_text, wraplength=330, foreground="#555")
         self.status.grid(row=4, column=0, sticky="ew")
+        ttk.Button(left, text="Train models...", command=self.open_training
+                   ).grid(row=5, column=0, sticky="ew", pady=(18, 0))
         self.root.bind("<Return>", lambda _e: self.start_search())
 
     def _build_results(self):
@@ -179,6 +182,10 @@ class RouteApp(ttk.Frame):
     @staticmethod
     def _site(choice: str) -> str:
         return choice.split()[0]
+
+    def open_training(self):
+        """The 'Train models' window (src/GUI/train_dialog.py)."""
+        TrainDialog(self.root, HAS_TENSORFLOW, on_full_training_done=self.cost_cache.clear)
 
     def swap(self):
         o, d = self.origin.get(), self.destination.get()

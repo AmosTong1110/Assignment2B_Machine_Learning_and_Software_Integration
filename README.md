@@ -39,6 +39,10 @@ Settings: traffic model (GRU / LSTM / Linear / Measured), search method, number 
 Advanced: where the flow is taken (origin or destination site), flow per road, and colouring
 the roads by predicted speed (green fast, red slow).
 
+**Train models...** (bottom left) opens a window that trains Linear / LSTM / GRU and shows the
+output live. *Quick demo* (3 sites, 2 epochs, about 1 minute) writes to a temporary folder and
+does not change the saved models. *Full training* (20+ minutes) replaces them, so restart the app afterwards.
+
 Departures before about 03:00 on 1 Oct 2006 are rejected: the models need the previous 3 hours.
 
 ### Command line
