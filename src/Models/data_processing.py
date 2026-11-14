@@ -1,7 +1,7 @@
 """
 data_processing.py  -  COS30019 Assignment 2B (TBRGS)
 =====================================================
-Turns the raw VicRoads file  Scats_Data_October_2006.xls  into a clean,
+Turns the raw VicRoads file  Scats Data October 2006.xls  into a clean,
 validated, ML-ready dataset.  It is also the SINGLE SOURCE OF TRUTH for the
 helpers every model shares (time features, scaler, supervised windows).
 
@@ -22,7 +22,7 @@ Shared helpers used by linear_regression_model.py, deep_common.py, ...:
     build_supervised()      one site's series -> (seq, aux, y, times, flow)
 
 Run (from the project root):
-    python -m src.Models.data_processing --xls data/Raw_Data/Scats_Data_October_2006.xls \
+    python -m src.Models.data_processing --xls data/Raw_Data/Scats Data October 2006.xls \
                                          --out data/Processed_Data
 
 Train / validation / test split rules live in config.yaml and evaluate.py
@@ -371,7 +371,7 @@ def run_pipeline(xls_path: str, out_dir: str = "data/Processed_Data") -> dict:
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Clean the SCATS October 2006 dataset")
-    ap.add_argument("--xls", default="data/Raw_Data/Scats_Data_October_2006.xls")
+    ap.add_argument("--xls", default="data/Raw_Data/Scats Data October 2006.xls")
     ap.add_argument("--out", default="data/Processed_Data")
     args = ap.parse_args()
     print(json.dumps(run_pipeline(args.xls, args.out), indent=2))

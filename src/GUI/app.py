@@ -14,6 +14,7 @@ changing only the search method / number of routes is instant (edge costs are ca
 """
 from __future__ import annotations
 
+import importlib.util
 import queue
 import threading
 import tkinter as tk
@@ -32,6 +33,12 @@ from src.Search import SEARCH_METHODS
 
 # Choices shown to the user  ->  value passed to the code
 MODELS = {"GRU": "gru", "LSTM": "lstm", "Linear regression": "linear", "Measured flow (no prediction)": "actual"}
+
+# Fallback: GRU/LSTM need TensorFlow.  If it is not installed, the GUI still works with
+# Linear regression (scikit-learn) and measured flow, instead of failing to start.
+HAS_TENSORFLOW = importlib.util.find_spec("tensorflow") is not None
+if not HAS_TENSORFLOW:
+    MODELS = {k: v for k, v in MODELS.items() if v not in ("gru", "lstm")}
 METHODS = {("A* search (recommended)" if code == "AS" else name): code
            for code, (_, name) in SEARCH_METHODS.items()}
 FLOW_SITES = {"Origin site (PDF)": "origin", "Destination site (brief)": "destination"}
@@ -115,8 +122,9 @@ class RouteApp(ttk.Frame):
 
         self.go = ttk.Button(left, text="Find routes", command=self.start_search)
         self.go.grid(row=3, column=0, sticky="ew", pady=(14, 4), ipady=6)
-        self.status = ttk.Label(left, text="Choose a trip and press Find routes.", wraplength=330,
-                                foreground="#555")
+        start_text = "Choose a trip and press Find routes." if HAS_TENSORFLOW else \
+            "TensorFlow is not installed, so GRU and LSTM are hidden. Linear regression still works."
+        self.status = ttk.Label(left, text=start_text, wraplength=330, foreground="#555")
         self.status.grid(row=4, column=0, sticky="ew")
         self.root.bind("<Return>", lambda _e: self.start_search())
 

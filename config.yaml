@@ -5,7 +5,7 @@
 paths:
   processed_dir: data/Processed_Data   # output of data_processing.py
   models_dir: saved_models             # trained models are saved here
-  results_dir: Results                 # metrics, predictions, plots
+  results_dir: results                 # metrics, predictions, plots
 
 data:
   lags: 12             # how many past 15-min slots the model sees (12 = 3 hours)
