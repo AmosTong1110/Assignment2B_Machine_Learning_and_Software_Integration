@@ -5,7 +5,7 @@ Run from the project root:
     python -m src.GUI.report_figures                         # brief example 2000 -> 3002, Thu 08:00, GRU
     python -m src.GUI.report_figures -o 4821 -d 2827 -t "2006-10-26 17:00" --model linear
 
-Writes to results/plots/ (names start with the trip, e.g. route_2000_3002_0800_gru_*):
+Writes to results/routes/ (names start with the trip, e.g. route_2000_3002_0800_gru_*):
     *_route1.png    map with the fastest route highlighted (same drawing as the GUI)
     *_traffic.png   same map with roads coloured by predicted speed
     *_routes.csv    the route table: rank, minutes, km, intersections, path, roads
@@ -25,7 +25,7 @@ from src.Routing import route_finder as rf
 def save_figures(origin: str, destination: str, when: str, model: str, method: str = "AS") -> list:
     cfg = dc.load_config()
     result = rf.find_routes(origin, destination, when, model, method, cfg=cfg)
-    out = dc.get_path(cfg, "results_dir") / "plots"
+    out = dc.get_path(cfg, "results_dir") / "routes"
     out.mkdir(parents=True, exist_ok=True)
     stem = out / f"route_{result.origin}_{result.destination}_{result.when:%H%M}_{model}"
 

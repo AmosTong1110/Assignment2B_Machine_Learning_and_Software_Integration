@@ -59,7 +59,22 @@ Methods: `AS` (A*), `BFS`, `DFS`, `GBFS`, `CUS1` (IDDFS), `CUS2` (IDA*). Models:
 ```bash
 python -m src.GUI.report_figures -o 2000 -d 3002 -t "2006-10-26 08:00" --model gru
 ```
-Saves the route map, the speed-coloured map and the route table to `results/plots/`.
+Saves the route map, the speed-coloured map and the route table to `results/routes/`.
+
+### Experiments for the report
+
+```bash
+python -m src.Routing.experiments            # all four, about 30 s
+python -m src.Routing.experiments --only methods time     # or: flow_mode, models
+```
+Writes four tables (and a chart) to `results/experiments/`, all on Thu 26 Oct 2006 (test week):
+
+| File | Question it answers |
+|---|---|
+| `1_search_methods.csv` | 6 Part A methods x 4 trips: route quality vs nodes created and runtime |
+| `2_time_of_day.csv`, `time_of_day.png` | how predicted traffic at 6 departure times changes the fastest route |
+| `3_flow_mode.csv` | `per_detector` vs `total`: edges at capacity, route times, route changes |
+| `4_model_choice.csv` | GRU / LSTM / Linear vs measured flow: same route? time lost in real traffic? |
 
 ## 3. Settings (config.yaml)
 
@@ -93,11 +108,18 @@ python -m unittest discover tests -v        # 20 tests, about a second, no Tenso
 |---|---|
 | `main.py` | entry point: GUI, or `--cli` |
 | `src/Models/` | Tasks 1-2: data processing, linear / LSTM / GRU, evaluation, plots |
-| `src/Routing/` | Task 3-4: network (`graph_builder`), flow -> time (`travel_time`, `edge_costs`), `route_finder` |
+| `src/Routing/` | Task 3-4: network (`graph_builder`), flow -> time (`travel_time`, `edge_costs`), `route_finder`, `experiments` |
 | `src/Search/` | Part A searches (DFS, BFS, GBFS, A*, IDDFS, IDA*) and `top_k.py` (Yen's algorithm for k routes) |
-| `src/GUI/` | the Tkinter GUI and the report-figure script |
+| `src/GUI/` | the Tkinter GUI, the training window and the report-figure script |
 | `tests/` | unit tests (travel time, graph, edge costs, top-k, route finder) |
-| `data/`, `results/`, `saved_models/` | data, metrics and plots, trained models |
+| `data/Raw_Data/` | the VicRoads files as given (only the SCATS October 2006 .xls is read by the code) |
+| `data/Processed_Data/` | cleaned 15-min flows, site metadata, quality report, `edges.csv` (the road network) |
+| `saved_models/` | trained models: `linear/` (.joblib), `lstm/` and `gru/` (.keras + scaler per site) |
+| `results/*.csv` | model metrics, predictions, learning history, `model_comparison.csv` |
+| `results/plots/` | model comparison plots (1-4) and `network_map.png` |
+| `results/routes/` | route maps and tables from `report_figures` |
+| `results/experiments/` | the four experiment tables and the time-of-day chart |
+| `assignment_info/` | the assignment brief and the flow-to-travel-time PDF |
 
 ## 7. Known limits
 
