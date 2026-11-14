@@ -78,7 +78,7 @@ def _has_model(model: str, site: str, cfg: dict) -> bool:
 def historical_flow_hourly(site: str, when: pd.Timestamp, clean: pd.DataFrame) -> float:
     """Average flow (veh/h) at `site` for the same weekday and 15-min slot as `when`."""
     g = clean[clean["scats_number"] == site]
-    same = g[(g["datetime"].dt.dayofweek == when.day_of_week) & (g["datetime"].dt.time == when.time())]
+    same = g[(g["datetime"].dt.day_of_week == when.day_of_week) & (g["datetime"].dt.time == when.time())]
     if same.empty:
         raise ValueError(f"No data for site {site} at {when:%a %H:%M}")
     return 4.0 * float(same["flow"].mean())

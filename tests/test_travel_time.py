@@ -24,70 +24,45 @@ from src.Routing import travel_time as tt
 # ==========================================================================
 # travel_time.py
 # ==========================================================================
-class TestFlowToSpeed(unittest.TestCase):
-    def test_coefficients_match_pdf_graph(self):                       # TT-01
+class TestTravelTime(unittest.TestCase):
+    def test_flow_to_speed_key_points(self):                            # TT-01
+        """Parabola coefficients, speed limit cap, capacity point, over-capacity clamp, bad input."""
         a, b = tt.parabola_coefficients()
-        self.assertAlmostEqual(a, -1.46484375)
+        self.assertAlmostEqual(a, -1.46484375)                          # PDF graph (-1500/32^2)
         self.assertAlmostEqual(b, 93.75)
-
-    def test_zero_flow_is_speed_limit(self):                            # TT-02
-        self.assertEqual(tt.flow_to_speed(0), 60.0)
-
-    def test_low_flow_capped_at_speed_limit(self):                      # TT-03
-        # the parabola gives ~60 km/h at ~351.56 veh/h; below that it would be > 60
+        self.assertEqual(tt.flow_to_speed(0), 60.0)                     # empty road: speed limit
+        self.assertEqual(tt.flow_to_speed(200), 60.0)                   # low flow is capped at 60
         self.assertEqual(tt.flow_to_speed(351), 60.0)
-        self.assertEqual(tt.flow_to_speed(200), 60.0)
+        self.assertAlmostEqual(tt.flow_to_speed(351.5625), 60.0, places=6)   # PDF point (351.56, 60)
+        self.assertAlmostEqual(tt.flow_to_speed(1500), 32.0)            # PDF point (1500, 32)
+        self.assertEqual(tt.flow_to_speed(3000), 32.0)                  # over capacity is clamped
+        with self.assertRaises(ValueError):
+            tt.flow_to_speed(-1)                                        # negative flow rejected
 
-    def test_pdf_point_351_56_gives_60(self):                           # TT-04
-        self.assertAlmostEqual(tt.flow_to_speed(351.5625), 60.0, places=6)
-
-    def test_capacity_gives_32(self):                                   # TT-05
-        self.assertAlmostEqual(tt.flow_to_speed(1500), 32.0)
-
-    def test_over_capacity_is_clamped(self):                            # TT-06
-        self.assertEqual(tt.flow_to_speed(3000), 32.0)
-
-    def test_speed_falls_as_flow_rises(self):                           # TT-07
+    def test_speed_curve_shape(self):                                   # TT-02
+        """Speed falls as flow rises, matches the PDF formula, and the red branch is slower."""
         speeds = [tt.flow_to_speed(f) for f in range(400, 1500, 100)]
         self.assertTrue(all(s1 > s2 for s1, s2 in zip(speeds, speeds[1:])))
-
-    def test_round_trip_with_pdf_formula(self):                         # TT-08
-        for flow in (400, 800, 1000, 1499):
+        for flow in (400, 800, 1000, 1499):                             # round trip with the PDF formula
             self.assertAlmostEqual(tt.speed_to_flow(tt.flow_to_speed(flow)), flow, places=6)
-
-    def test_congested_branch_is_slower(self):                          # TT-09
-        green = tt.flow_to_speed(1000)
-        red = tt.flow_to_speed(1000, congested=True)
-        self.assertLess(red, 32.0)
+        green, red = tt.flow_to_speed(1000), tt.flow_to_speed(1000, congested=True)
         self.assertGreater(green, 32.0)
+        self.assertLess(red, 32.0)
         self.assertAlmostEqual(tt.speed_to_flow(red), 1000, places=6)
 
-    def test_negative_flow_rejected(self):                              # TT-10
-        with self.assertRaises(ValueError):
-            tt.flow_to_speed(-1)
-
-
-class TestEdgeTravelTime(unittest.TestCase):
-    def test_1km_free_flow_is_90s(self):                                # TT-11
-        # 1 km at 60 km/h = 60 s, plus 30 s intersection delay
-        self.assertAlmostEqual(tt.edge_travel_time_s(1.0, 0), 90.0)
-
-    def test_1km_at_capacity(self):                                     # TT-12
-        # 1 km at 32 km/h = 112.5 s, plus 30 s
-        self.assertAlmostEqual(tt.edge_travel_time_s(1.0, 1500), 142.5)
-
-    def test_zero_distance_is_only_delay(self):                         # TT-13
-        self.assertEqual(tt.edge_travel_time_s(0.0, 900), 30.0)
-
-    def test_more_traffic_never_faster(self):                           # TT-14
+    def test_edge_travel_time(self):                                    # TT-03
+        """time = distance / speed + 30 s delay; more traffic is never faster."""
+        self.assertAlmostEqual(tt.edge_travel_time_s(1.0, 0), 90.0)         # 1 km at 60 km/h = 60 s + 30 s
+        self.assertAlmostEqual(tt.edge_travel_time_s(1.0, 1500), 142.5)     # 1 km at 32 km/h = 112.5 s + 30 s
+        self.assertEqual(tt.edge_travel_time_s(0.0, 900), 30.0)             # zero distance: only the delay
         times = [tt.edge_travel_time_s(2.0, f) for f in (0, 500, 1000, 1500, 2500)]
         self.assertEqual(times, sorted(times))
 
-    def test_config_overrides(self):                                    # TT-15
+    def test_config_overrides(self):                                    # TT-04
         p = tt.params_from_config({"travel_time": {"intersection_delay_s": 0, "speed_limit_kmh": 50}})
-        self.assertAlmostEqual(tt.edge_travel_time_s(1.0, 0, **p), 72.0)   # 1 km at 50 km/h
+        self.assertAlmostEqual(tt.edge_travel_time_s(1.0, 0, **p), 72.0)   # 1 km at 50 km/h, no delay
 
-    def test_haversine_known_distance(self):                            # TT-16
+    def test_haversine_known_distance(self):                            # TT-05
         # 0.01 degree of latitude is ~1.112 km everywhere
         self.assertAlmostEqual(tt.haversine_km(-37.80, 145.0, -37.81, 145.0), 1.112, places=2)
         self.assertEqual(tt.haversine_km(-37.8, 145.0, -37.8, 145.0), 0.0)
@@ -102,12 +77,10 @@ class TestGraphBuilder(unittest.TestCase):
         self.assertEqual(gb.parse_roads("HIGH_ST NE OF HARP_ST"), ("HIGH_ST", "HARP_RD"))   # alias
         self.assertEqual(gb.parse_roads("STUDLEY PARK_RD W of PRINCESS_ST"),
                          ("STUDLEY PARK_RD", "PRINCESS_ST"))
-
-    def test_parse_roads_rejects_bad_text(self):                        # GB-02
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError):                             # unreadable text is rejected
             gb.parse_roads("NOT A LOCATION")
 
-    def test_consecutive_sites_on_a_road_are_joined(self):              # GB-03
+    def test_consecutive_sites_on_a_road_are_joined(self):              # GB-02
         nodes = pd.DataFrame({"scats_number": ["A", "B", "C"],
                               "latitude": [-37.80, -37.81, -37.82],
                               "longitude": [145.0, 145.0, 145.0]})
@@ -119,7 +92,7 @@ class TestGraphBuilder(unittest.TestCase):
         self.assertEqual(pairs, {("A", "B"), ("B", "A"), ("B", "C"), ("C", "B")})
         self.assertTrue(dropped.empty)
 
-    def test_long_joins_are_dropped(self):                              # GB-04
+    def test_long_joins_are_dropped(self):                              # GB-03
         nodes = pd.DataFrame({"scats_number": ["A", "B"], "latitude": [-37.80, -37.90],
                               "longitude": [145.0, 145.0]})                    # ~11 km apart
         roads = pd.DataFrame({"scats_number": ["A", "B"], "road": ["HIGH_ST"] * 2})
@@ -128,7 +101,7 @@ class TestGraphBuilder(unittest.TestCase):
         self.assertTrue(edges.empty)
         self.assertEqual(len(dropped), 1)
 
-    def test_real_network_is_connected(self):                           # GB-05
+    def test_real_network_is_connected(self):                           # GB-04
         """Every site can reach every other site in the real edges.csv."""
         try:
             edges = gb.load_edges()
@@ -205,18 +178,16 @@ class TestEdgeCosts(unittest.TestCase):
         self.assertEqual(t.at[("B", "A"), "source"], "historical_avg")     # B has no model
         self.assertEqual(t.at[("B", "A"), "flow_vph"], 4 * (300 + 200) / 2)
 
-    def test_cost_lookup(self):                                         # EC-04
+    def test_cost_lookup_and_bad_settings(self):                        # EC-04
         t = ec.edge_costs(WHEN, "actual", self._cfg(), self.edges)
         costs = ec.cost_lookup(t)
         self.assertEqual(set(costs), {("A", "B"), ("B", "A")})
         self.assertTrue(all(isinstance(v, float) and v >= 30 for v in costs.values()))
-
-    def test_bad_settings_rejected(self):                               # EC-05
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError):                              # unknown flow_site
             ec.edge_costs(WHEN, "actual", self._cfg(flow_site="middle"), self.edges)
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError):                              # unknown flow_mode
             ec.edge_costs(WHEN, "actual", self._cfg(flow_mode="average"), self.edges)
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError):                              # unknown model
             ec.site_flows(WHEN, "svm", ["A"], self._cfg())
 
 

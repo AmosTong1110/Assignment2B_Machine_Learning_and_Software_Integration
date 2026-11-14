@@ -84,7 +84,7 @@ python -m src.Routing.edge_costs --time "2006-10-26 08:00" --model gru     # tra
 ## 5. Tests
 
 ```bash
-python -m unittest discover tests -v        # 44 tests, about a second, no TensorFlow needed
+python -m unittest discover tests -v        # 20 tests, about a second, no TensorFlow needed
 ```
 
 ## 6. Project layout
