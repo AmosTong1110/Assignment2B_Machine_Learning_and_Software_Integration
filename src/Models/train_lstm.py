@@ -8,9 +8,9 @@ Settings (epochs, units, ...) come from config.yaml.
 
 Outputs
     saved_models/lstm/<site>.keras + <site>_scaler.json   one trained model per site
-    Results/lstm_metrics.csv       MAE / RMSE per site (shared format, see evaluate.py)
-    Results/lstm_predictions.csv   predictions vs truth (for plots in the report)
-    Results/lstm_history.csv       training / validation loss per epoch (learning curves)
+    results/lstm_metrics.csv       MAE / RMSE per site (shared format, see evaluate.py)
+    results/lstm_predictions.csv   predictions vs truth (for plots in the report)
+    results/lstm_history.csv       training / validation loss per epoch (learning curves)
 """
 import src.Models.deep_common as dc
 import src.Models.lstm_model as lstm

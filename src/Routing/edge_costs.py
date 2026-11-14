@@ -174,7 +174,7 @@ def main() -> None:
     ap.add_argument("--time", required=True, help='start of a 15-min slot in Oct 2006, e.g. "2006-10-26 08:00"')
     ap.add_argument("--model", default=None, choices=FLOW_SOURCES, help="flow source (default: config)")
     ap.add_argument("--config", default=None, help="path to config.yaml (default: project root)")
-    ap.add_argument("--save", action="store_true", help="also write Results/edge_costs_<model>.csv")
+    ap.add_argument("--save", action="store_true", help="also write results/edge_costs_<model>.csv")
     args = ap.parse_args()
 
     cfg = dc.load_config(args.config)

@@ -19,7 +19,7 @@ LAYER = "LSTM"           # the Keras layer
 
 
 def train(cfg=None, sites=None):
-    """Train + evaluate on all sites; writes Results/lstm_*.csv and saved_models/lstm/."""
+    """Train + evaluate on all sites; writes results/lstm_*.csv and saved_models/lstm/."""
     return dc.train_deep(MODEL_NAME, MODEL_KEY, LAYER, cfg, sites)
 
 

@@ -2,7 +2,7 @@
 plot_results.py  -  figures for the report (Insights / Testing sections)
 =======================================================================
 Run from the project root:      python -m src.Models.plot_results
-(train_all.py also calls it at the end.)  Pictures are saved in Results/plots/.
+(train_all.py also calls it at the end.)  Pictures are saved in results/plots/.
 
     1_model_error_comparison.png   mean MAE / RMSE (left) and mean NRMSE in % (right)
     2_actual_vs_predicted.png      real flow vs each model's prediction for one site
@@ -127,6 +127,6 @@ def main(cfg: dict = None) -> None:
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser(description="Draw report figures from Results/*.csv")
+    ap = argparse.ArgumentParser(description="Draw report figures from results/*.csv")
     ap.add_argument("--config", default=None)
     main(dc.load_config(ap.parse_args().config))

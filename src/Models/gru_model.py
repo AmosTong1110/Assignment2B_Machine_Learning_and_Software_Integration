@@ -19,7 +19,7 @@ LAYER = "GRU"            # the Keras layer
 
 
 def train(cfg=None, sites=None):
-    """Train + evaluate on all sites; writes Results/gru_*.csv and saved_models/gru/."""
+    """Train + evaluate on all sites; writes results/gru_*.csv and saved_models/gru/."""
     return dc.train_deep(MODEL_NAME, MODEL_KEY, LAYER, cfg, sites)
 
 

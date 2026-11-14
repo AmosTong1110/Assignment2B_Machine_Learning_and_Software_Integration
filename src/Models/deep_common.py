@@ -47,7 +47,7 @@ SLOTS_PER_DAY = dp.SLOTS_PER_DAY
 # --------------------------------------------------------------------------
 DEFAULTS = {
     "paths": {"processed_dir": "data/Processed_Data", "models_dir": "saved_models",
-              "results_dir": "Results"},
+              "results_dir": "results"},
     "data": {"lags": 12},
     "training": {"seed": 42, "epochs": 60, "batch_size": 32, "learning_rate": 0.001,
                  "val_days": 3, "patience": 8},

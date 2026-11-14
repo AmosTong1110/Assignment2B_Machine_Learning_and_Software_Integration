@@ -27,11 +27,11 @@ How a model owner uses this file (example for a PyTorch model):
         truth = ev.get_test_truth(clean, site)       # the answer key (672 rows)
         y_pred = ...your model predictions, 672 numbers, in vehicles/15min...
         rows.append(ev.evaluate_site("LSTM", site, y_pred, truth, train_seconds))
-    ev.save_results(rows, "Results/lstm_metrics.csv")
+    ev.save_results(rows, "results/lstm_metrics.csv")
 
 Compare all models (run from the project root):
-    python -m src.Models.evaluate Results/linear_metrics.csv Results/lstm_metrics.csv \
-                                  Results/gru_metrics.csv Results/baseline_metrics.csv
+    python -m src.Models.evaluate results/linear_metrics.csv results/lstm_metrics.csv \
+                                  results/gru_metrics.csv results/baseline_metrics.csv
 """
 from __future__ import annotations
 
@@ -173,8 +173,8 @@ def compare(paths: list[str]) -> tuple[pd.DataFrame, pd.DataFrame]:
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Compare model result CSV files")
-    ap.add_argument("files", nargs="+", help="result CSVs, e.g. Results/linear_metrics.csv ...")
-    ap.add_argument("--out", default="Results/model_comparison.csv")
+    ap.add_argument("files", nargs="+", help="result CSVs, e.g. results/linear_metrics.csv ...")
+    ap.add_argument("--out", default="results/model_comparison.csv")
     args = ap.parse_args()
     summary, per_site = compare(args.files)
     print(summary.to_string())

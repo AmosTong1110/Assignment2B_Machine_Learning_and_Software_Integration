@@ -1,7 +1,7 @@
 """
 travel_time.py  -  traffic flow  ->  speed  ->  travel time   (Task 3, pure maths)
 ==================================================================================
-Implements "Traffic Flow to Travel Time Conversion v1.0.pdf" (Assignment_Info/).
+Implements "Traffic Flow to Travel Time Conversion v1.0.pdf" (assignment_info/).
 
     travel time of an edge A->B  =  distance(A,B) / speed(flow)  +  30 s intersection delay
 

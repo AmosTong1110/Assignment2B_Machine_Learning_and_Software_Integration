@@ -11,8 +11,8 @@ Steps
     1. Linear Regression (+ the 'next = last value' baseline)   -> train_linear.py
     2. LSTM                                                     -> lstm_model.py
     3. GRU                                                      -> gru_model.py
-    4. Compare all models (same test rows, same metrics)        -> Results/model_comparison.csv
-    5. Plots for the report                                     -> Results/plots/*.png
+    4. Compare all models (same test rows, same metrics)        -> results/model_comparison.csv
+    5. Plots for the report                                     -> results/plots/*.png
 """
 from __future__ import annotations
 

@@ -18,7 +18,7 @@ How the edges are found (no map data needed - only the raw SCATS file):
 
 Outputs
     data/Processed_Data/edges.csv          from, to, road, distance_km   (directed)
-    Results/plots/network_map.png          picture of the graph - CHECK IT against a map
+    results/plots/network_map.png          picture of the graph - CHECK IT against a map
 
 Distance = straight-line (haversine) distance between the two sites' coordinates.
 """
@@ -48,7 +48,7 @@ ROAD_ALIASES = {
     "HIGH STREET_RD": "HIGH_STREET_RD",         # Glen Waverley's High Street Rd (not Kew's High St)
 }
 
-# Hand-checked corrections after looking at the map (Results/plots/network_map.png).
+# Hand-checked corrections after looking at the map (results/plots/network_map.png).
 # Undirected pairs: one entry adds/removes BOTH directions.
 EXTRA_EDGES: list[tuple[str, str, str]] = [
     # (site_a, site_b, road)  - roads that change NAME between two sites, so step 2 misses them

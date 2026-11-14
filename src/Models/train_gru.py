@@ -8,9 +8,9 @@ Settings (epochs, units, ...) come from config.yaml.
 
 Outputs
     saved_models/gru/<site>.keras + <site>_scaler.json    one trained model per site
-    Results/gru_metrics.csv        MAE / RMSE per site (shared format, see evaluate.py)
-    Results/gru_predictions.csv    predictions vs truth (for plots in the report)
-    Results/gru_history.csv        training / validation loss per epoch (learning curves)
+    results/gru_metrics.csv        MAE / RMSE per site (shared format, see evaluate.py)
+    results/gru_predictions.csv    predictions vs truth (for plots in the report)
+    results/gru_history.csv        training / validation loss per epoch (learning curves)
 """
 import src.Models.deep_common as dc
 import src.Models.gru_model as gru

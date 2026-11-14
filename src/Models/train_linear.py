@@ -7,9 +7,9 @@ Paths come from config.yaml (processed_dir, models_dir, results_dir).
 
 Outputs
     saved_models/linear/<site>.joblib     one trained model per site
-    Results/linear_metrics.csv            MAE / RMSE per site (shared format)
-    Results/baseline_metrics.csv          "next = last value" baseline (shared format)
-    Results/linear_predictions.csv        predictions vs truth (for plots in the report)
+    results/linear_metrics.csv            MAE / RMSE per site (shared format)
+    results/baseline_metrics.csv          "next = last value" baseline (shared format)
+    results/linear_predictions.csv        predictions vs truth (for plots in the report)
 """
 from __future__ import annotations
 
