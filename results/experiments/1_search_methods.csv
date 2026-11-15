@@ -1,25 +1,25 @@
 trip,method,method_name,routes_found,route1_min,mean_of_5_min,extra_vs_astar_min,nodes_created,runtime_ms
-2000->3002,AS,A* search,5,14.49,15.01,0.0,486,10.4
-2000->3002,BFS,Breadth-first search,5,14.49,15.01,0.0,735,5.9
-2000->3002,DFS,Depth-first search,5,15.23,18.05,3.04,601,5.4
-2000->3002,GBFS,Greedy best-first search,5,14.49,15.01,0.0,301,5.3
-2000->3002,CUS1,Iterative deepening DFS (CUS1),5,14.49,15.01,0.0,1222,5.6
-2000->3002,CUS2,Iterative deepening A* (CUS2),5,14.49,15.01,0.0,854,7.0
-4821->2827,AS,A* search,5,12.85,13.75,0.0,7775,21.1
-4821->2827,BFS,Breadth-first search,5,12.85,14.25,0.5,6724,11.7
-4821->2827,DFS,Depth-first search,5,14.74,15.47,1.72,1447,6.3
-4821->2827,GBFS,Greedy best-first search,5,12.85,14.34,0.59,4052,366.5
-4821->2827,CUS1,Iterative deepening DFS (CUS1),5,12.85,14.25,0.5,55515,72.3
-4821->2827,CUS2,Iterative deepening A* (CUS2),5,12.85,14.25,0.5,63421,102.7
-0970->4051,AS,A* search,5,17.71,18.87,0.0,803,6.0
-0970->4051,BFS,Breadth-first search,5,17.71,18.87,0.0,2952,6.7
-0970->4051,DFS,Depth-first search,5,21.23,28.62,9.75,809,5.5
-0970->4051,GBFS,Greedy best-first search,5,17.71,18.87,0.0,413,5.6
-0970->4051,CUS1,Iterative deepening DFS (CUS1),5,17.71,18.87,0.0,4037,8.6
-0970->4051,CUS2,Iterative deepening A* (CUS2),5,17.71,18.87,0.0,2773,10.7
-3001->2200,AS,A* search,5,10.34,11.68,0.0,3669,12.5
-3001->2200,BFS,Breadth-first search,5,10.34,11.68,0.0,4121,9.0
-3001->2200,DFS,Depth-first search,5,11.23,16.76,5.08,2700,7.9
-3001->2200,GBFS,Greedy best-first search,5,10.34,11.89,0.21,4900,142.6
-3001->2200,CUS1,Iterative deepening DFS (CUS1),5,10.34,11.68,0.0,37048,48.7
-3001->2200,CUS2,Iterative deepening A* (CUS2),5,10.34,11.68,0.0,40927,67.9
+2000->3002,AS,A* search,5,14.49,15.01,0.0,486,17.8
+2000->3002,BFS,Breadth-first search,5,14.49,15.01,0.0,735,15.4
+2000->3002,DFS,Depth-first search,5,15.23,17.95,2.95,601,24.4
+2000->3002,GBFS,Greedy best-first search,5,14.49,15.01,0.0,301,21.2
+2000->3002,CUS1,Iterative deepening DFS (CUS1),5,14.49,15.01,0.0,1222,25.5
+2000->3002,CUS2,Iterative deepening A* (CUS2),5,14.49,15.01,0.0,854,28.1
+4821->2827,AS,A* search,5,11.93,13.03,0.0,7188,62.6
+4821->2827,BFS,Breadth-first search,5,11.93,13.35,0.33,6724,36.2
+4821->2827,DFS,Depth-first search,5,13.98,14.9,1.88,1439,14.3
+4821->2827,GBFS,Greedy best-first search,5,11.93,13.67,0.64,5244,1028.0
+4821->2827,CUS1,Iterative deepening DFS (CUS1),5,11.93,13.35,0.33,55515,183.5
+4821->2827,CUS2,Iterative deepening A* (CUS2),5,11.93,13.35,0.33,63421,297.2
+0970->4051,AS,A* search,5,17.71,18.87,0.0,784,20.8
+0970->4051,BFS,Breadth-first search,5,17.71,18.87,0.0,2952,14.5
+0970->4051,DFS,Depth-first search,5,21.23,28.64,9.77,809,18.4
+0970->4051,GBFS,Greedy best-first search,5,17.71,18.87,0.0,413,25.3
+0970->4051,CUS1,Iterative deepening DFS (CUS1),5,17.71,18.87,0.0,4037,35.2
+0970->4051,CUS2,Iterative deepening A* (CUS2),5,17.71,18.87,0.0,2773,27.1
+3001->2200,AS,A* search,5,10.44,11.71,0.0,3696,41.2
+3001->2200,BFS,Breadth-first search,5,10.44,11.73,0.02,4121,29.7
+3001->2200,DFS,Depth-first search,5,11.28,16.8,5.09,2700,27.0
+3001->2200,GBFS,Greedy best-first search,5,10.44,11.71,0.0,4819,391.5
+3001->2200,CUS1,Iterative deepening DFS (CUS1),5,10.44,11.73,0.02,37048,125.6
+3001->2200,CUS2,Iterative deepening A* (CUS2),5,10.44,11.73,0.02,40927,187.2

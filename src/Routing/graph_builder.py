@@ -18,6 +18,9 @@ How the edges are found (no map data needed - only the raw SCATS file):
 
 Outputs
     data/Processed_Data/edges.csv          from, to, road, distance_km   (directed)
+    data/Processed_Data/site_roads.csv     scats_number, label  (e.g. "BURWOOD_HWY / TOORAK_RD / WARRIGAL_RD")
+                                           -> the GUI reads this file, so it does NOT need the raw
+                                              .xls (or xlrd) just to show the road names
     results/plots/network_map.png          picture of the graph - CHECK IT against a map
 
 Distance = straight-line (haversine) distance between the two sites' coordinates.
@@ -32,12 +35,14 @@ import numpy as np
 import pandas as pd
 
 import src.Models.deep_common as dc
+from src.Models.data_processing import RAW_XLS          # one place for the raw file name
 from src.Routing.travel_time import haversine_km
 
-RAW_XLS = "data/Raw_Data/Scats Data October 2006.xls"
 EDGE_COLUMNS = ["from", "to", "road", "distance_km"]
+SITE_ROADS_FILE = "site_roads.csv"
 
 # Joins longer than this are treated as "same name, different road" and dropped.
+# (The longest real link in the network is 3.69 km, so 4.0 keeps every real road.)
 MAX_EDGE_KM = 4.0
 
 # Different spellings of the same road in the raw file  ->  one name.
@@ -106,6 +111,26 @@ def load_site_roads(xls_path: Path) -> pd.DataFrame:
         for road in parse_roads(loc):
             rows.append((str(site).strip().zfill(4), road))
     return pd.DataFrame(rows, columns=["scats_number", "road"]).drop_duplicates()
+
+
+def make_site_labels(site_roads: pd.DataFrame) -> pd.DataFrame:
+    """One row per site: scats_number, label = the road names there, e.g. 'BURWOOD_HWY / TOORAK_RD'."""
+    labels = site_roads.groupby("scats_number")["road"].apply(lambda r: " / ".join(sorted(r)))
+    return labels.rename("label").reset_index()
+
+
+def load_site_labels(cfg: dict = None) -> dict[str, str]:
+    """
+    {'2000': 'BURWOOD_HWY / TOORAK_RD / WARRIGAL_RD', ...} read from site_roads.csv.
+    Returns {} (no labels, nothing crashes) if the file is missing or unreadable.
+    """
+    try:
+        cfg = cfg or dc.load_config()
+        table = pd.read_csv(dc.get_path(cfg, "processed_dir") / SITE_ROADS_FILE,
+                            dtype={"scats_number": str, "label": str})
+        return dict(zip(table["scats_number"], table["label"]))
+    except Exception:                                  # labels are only a nicety
+        return {}
 
 
 # --------------------------------------------------------------------------
@@ -216,9 +241,13 @@ def main(cfg: dict = None, plot: bool = True) -> pd.DataFrame:
     site_roads = load_site_roads(dc.ROOT / RAW_XLS)
     edges, dropped = build_edges(nodes, site_roads)
 
-    out = dc.get_path(cfg, "processed_dir") / "edges.csv"
+    processed = dc.get_path(cfg, "processed_dir")
+    out = processed / "edges.csv"
     edges.to_csv(out, index=False)
+    labels_out = processed / SITE_ROADS_FILE
+    make_site_labels(site_roads).to_csv(labels_out, index=False)
     print(f"{len(nodes)} nodes, {len(edges)} directed edges ({len(edges) // 2} two-way roads) -> {out}")
+    print(f"Road names per site -> {labels_out}")
 
     isolated = sorted(set(nodes["scats_number"]) - set(edges["from"]))
     if isolated:
@@ -233,7 +262,7 @@ def main(cfg: dict = None, plot: bool = True) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser(description="Build the SCATS road network (edges.csv)")
+    ap = argparse.ArgumentParser(description="Build the SCATS road network (edges.csv, site_roads.csv)")
     ap.add_argument("--config", default=None, help="path to config.yaml (default: project root)")
     ap.add_argument("--no-plot", action="store_true", help="do not draw the network map")
     args = ap.parse_args()

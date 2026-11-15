@@ -27,7 +27,7 @@ import pandas as pd
 import src.Models.deep_common as dc
 from src.Routing import edge_costs as ec
 from src.Routing import travel_time as tt
-from src.Routing.graph_builder import RAW_XLS, load_edges, load_nodes, load_site_roads
+from src.Routing.graph_builder import load_edges, load_nodes, load_site_labels
 from src.Search import SEARCH_METHODS
 from src.Search.problem import Problem
 from src.Search.top_k import k_routes
@@ -87,12 +87,12 @@ def config_with(cfg: dict = None, **travel_time) -> dict:
 
 @lru_cache(maxsize=1)
 def site_labels() -> dict[str, str]:
-    """{'2000': 'BURWOOD_HWY / TOORAK_RD / WARRIGAL_RD', ...}  - road names at every site."""
-    try:
-        roads = load_site_roads(dc.ROOT / RAW_XLS)
-    except (OSError, ValueError):
-        return {}
-    return roads.groupby("scats_number")["road"].apply(lambda r: " / ".join(sorted(r))).to_dict()
+    """
+    {'2000': 'BURWOOD_HWY / TOORAK_RD / WARRIGAL_RD', ...}  - road names at every site.
+    Read from data/Processed_Data/site_roads.csv (written by graph_builder), so the raw .xls
+    and xlrd are NOT needed to run the GUI.  Returns {} if the file is missing.
+    """
+    return load_site_labels()
 
 
 def build_problem(edge_table: pd.DataFrame, nodes: pd.DataFrame, origin: str, destination: str,
