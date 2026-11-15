@@ -22,8 +22,9 @@ Shared helpers used by linear_regression_model.py, deep_common.py, ...:
     build_supervised()      one site's series -> (seq, aux, y, times, flow)
 
 Run (from the project root):
-    python -m src.Models.data_processing --xls data/Raw_Data/Scats Data October 2006.xls \
-                                         --out data/Processed_Data
+    python -m src.Models.data_processing
+    (defaults: --xls "data/Raw_Data/Scats Data October 2006.xls"  --out data/Processed_Data;
+     put the path in quotes if you pass it yourself, because it contains spaces)
 
 Train / validation / test split rules live in config.yaml and evaluate.py
 (test = last 7 days, validation = last `val_days` of the training part), NOT here.
@@ -56,6 +57,7 @@ CONFIG = {
     "max_plausible_flow": 1600,   # veh / 15 min at one site (observed max ~1,400)
 }
 SLOTS_PER_DAY = CONFIG["slots_per_day"]
+RAW_XLS = "data/Raw_Data/Scats Data October 2006.xls"   # single source for the raw file name
 FLOW_COLS = [f"V{i:02d}" for i in range(SLOTS_PER_DAY)]
 
 
@@ -224,7 +226,11 @@ def build_site_metadata(raw: pd.DataFrame, clean: pd.DataFrame, log: dict) -> pd
     meta = (coords.groupby("SCATS Number")
             .agg(latitude=("NB_LATITUDE", "median"), longitude=("NB_LONGITUDE", "median"))
             .reindex(sorted(raw["SCATS Number"].unique())))
-    meta["n_detectors"] = raw.groupby("SCATS Number")["Location"].nunique()
+    # Usual number of detector rows per day = what the cleaned site flow is the SUM of.
+    # (nunique of the names was wrong for 3001: a 4th detector exists only on 2-3 Oct,
+    #  and for 4335: two detectors share one name.)  `raw` is already without faulty detectors.
+    rows_per_day = raw.groupby(["SCATS Number", "day"]).size().unstack(0)
+    meta["n_detectors"] = rows_per_day.apply(lambda col: col.mode().iloc[0]).astype(int)
     meta["imputed_share"] = clean.groupby("scats_number")["imputed"].mean().round(4)
     meta["outage_values"] = pd.Series({k: v["outage_values"] for k, v in log.items()})
     meta["spike_values"] = pd.Series({k: v["spike_values"] for k, v in log.items()})
@@ -371,7 +377,7 @@ def run_pipeline(xls_path: str, out_dir: str = "data/Processed_Data") -> dict:
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Clean the SCATS October 2006 dataset")
-    ap.add_argument("--xls", default="data/Raw_Data/Scats Data October 2006.xls")
+    ap.add_argument("--xls", default=RAW_XLS)
     ap.add_argument("--out", default="data/Processed_Data")
     args = ap.parse_args()
     print(json.dumps(run_pipeline(args.xls, args.out), indent=2))

@@ -6,7 +6,7 @@ scats_number,latitude,longitude,n_detectors,imputed_share,outage_values,spike_va
 2825,-37.78661,145.06202,1,0.0,0,0,False,False
 2827,-37.78167865,145.07731,4,0.0,0,0,False,False
 2846,-37.86139355,145.057774,4,0.0,0,0,False,False
-3001,-37.81457,145.02243,4,0.0709,0,19,False,False
+3001,-37.81457,145.02243,3,0.0709,0,19,False,False
 3002,-37.815155000000004,145.026575,4,0.1613,0,0,False,False
 3120,-37.822895,145.05729000000002,4,0.0,0,0,False,False
 3122,-37.82379,145.06435,3,0.0,0,0,False,False
@@ -36,6 +36,6 @@ scats_number,latitude,longitude,n_detectors,imputed_share,outage_values,spike_va
 4273,-37.84659,145.04443,2,0.0,0,0,False,False
 4321,-37.800818,145.04910805,4,0.0,0,0,False,False
 4324,-37.809274,145.036785,3,0.0,0,0,False,False
-4335,-37.806215,145.03525000000002,1,0.0,0,0,False,False
+4335,-37.806215,145.03525000000002,2,0.0,0,0,False,False
 4812,-37.82903,145.01576,3,0.1613,0,0,False,False
 4821,-37.81296,145.00844,3,0.0,0,0,False,False
