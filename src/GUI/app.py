@@ -127,7 +127,7 @@ class RouteApp(ttk.Frame):
             "TensorFlow is not installed, so GRU and LSTM are hidden. Linear regression still works."
         self.status = ttk.Label(left, text=start_text, wraplength=330, foreground="#555")
         self.status.grid(row=4, column=0, sticky="ew")
-        ttk.Button(left, text="Train models...", command=self.open_training
+        ttk.Button(left, text="Train models", command=self.open_training
                    ).grid(row=5, column=0, sticky="ew", pady=(18, 0))
         self.root.bind("<Return>", lambda _e: self.start_search())
 
