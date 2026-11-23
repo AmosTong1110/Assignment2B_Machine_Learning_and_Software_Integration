@@ -5,9 +5,10 @@ Run from the project root:
     python -m src.GUI.report_figures                         # brief example 2000 -> 3002, Thu 08:00, GRU
     python -m src.GUI.report_figures -o 4821 -d 2827 -t "2006-10-26 17:00" --model linear
 
+(For roads coloured by predicted speed, use the traffic map: python -m src.GUI.map_screenshots)
+
 Writes to results/routes/ (names start with the trip, e.g. route_2000_3002_0800_gru_*):
     *_route1.png    map with the fastest route highlighted (same drawing as the GUI)
-    *_traffic.png   same map with roads coloured by predicted speed
     *_routes.csv    the route table: rank, minutes, km, intersections, path, roads
 """
 from __future__ import annotations
@@ -33,16 +34,13 @@ def save_figures(origin: str, destination: str, when: str, model: str, method: s
     root.withdraw()                                      # no window needed, only the drawing
     app = RouteApp(root)
     app.show_result(result)                              # selects route 1 and draws the map
-    files = [f"{stem}_route1.png", f"{stem}_traffic.png", f"{stem}_routes.csv"]
+    files = [f"{stem}_route1.png", f"{stem}_routes.csv"]
     app.fig.savefig(files[0], dpi=150, bbox_inches="tight")
-    app.traffic.set(True)
-    app.draw_map()
-    app.fig.savefig(files[1], dpi=150, bbox_inches="tight")
     root.destroy()
 
     pd.DataFrame([{"rank": r.rank, "minutes": round(r.minutes, 1), "km": round(r.distance_km, 2),
                    "intersections": len(r.path) - 1, "path": " -> ".join(r.path),
-                   "roads": " -> ".join(r.roads)} for r in result.routes]).to_csv(files[2], index=False)
+                   "roads": " -> ".join(r.roads)} for r in result.routes]).to_csv(files[1], index=False)
     return files
 
 

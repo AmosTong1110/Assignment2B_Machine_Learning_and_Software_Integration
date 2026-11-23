@@ -7,7 +7,8 @@ Left  : trip (origin, destination, date, time) and settings (model, search metho
 Right : the routes found (fastest first), a map of the Boroondara network with the selected
         route highlighted, and a leg-by-leg breakdown of the selected route.
 
-Defaults come from config.yaml (travel_time: section); the user can change them here.
+The travel-time settings (whose flow sets a road's speed, flow per detector, ...) are fixed by
+config.yaml (travel_time: section); the user picks the trip, model, search method and routes.
 The ML prediction runs in a background thread so the window never freezes.  The first search
 takes ~10 s (TensorFlow and the models load once); later searches take about a second, and
 changing only the search method / number of routes is instant (edge costs are cached).
@@ -28,7 +29,6 @@ from matplotlib.figure import Figure
 import src.Models.deep_common as dc
 from src.Routing import edge_costs as ec
 from src.Routing import route_finder as rf
-from src.GUI.train_dialog import TrainDialog
 from src.Routing.graph_builder import load_edges, load_nodes
 from src.Search import SEARCH_METHODS
 
@@ -42,8 +42,6 @@ if not HAS_TENSORFLOW:
     MODELS = {k: v for k, v in MODELS.items() if v not in ("gru", "lstm")}
 METHODS = {("A* search (recommended)" if code == "AS" else name): code
            for code, (_, name) in SEARCH_METHODS.items()}
-FLOW_SITES = {"Origin site (PDF)": "origin", "Destination site (brief)": "destination"}
-FLOW_MODES = {"Per detector (one approach)": "per_detector", "Intersection total": "total"}
 
 DAYS = pd.date_range("2006-10-01", "2006-10-31", freq="D")
 TIMES = [f"{h:02d}:{m:02d}" for h in range(24) for m in (0, 15, 30, 45)]
@@ -69,8 +67,7 @@ class RouteApp(ttk.Frame):
         self.pos = self.nodes.set_index("scats_number")[["longitude", "latitude"]]
 
         self.result: rf.RouteResult | None = None
-        self.result_cfg: dict = self.cfg                        # settings used for self.result
-        self.cost_cache: dict[tuple, pd.DataFrame] = {}     # (time, model, flow_site, flow_mode) -> edge table
+        self.cost_cache: dict[tuple, pd.DataFrame] = {}     # (time, model) -> edge table
         self.jobs: queue.Queue = queue.Queue()
 
         self._build_controls()
@@ -114,26 +111,16 @@ class RouteApp(ttk.Frame):
         ttk.Spinbox(opts, from_=1, to=rf.MAX_ROUTES, textvariable=self.k, width=5, state="readonly"
                     ).grid(row=2, column=1, sticky="w", pady=3)
 
-        adv = ttk.LabelFrame(left, text="Advanced (travel-time model)", padding=8)
-        adv.grid(row=2, column=0, sticky="ew")
-        self.flow_site = self._combo(adv, 0, "Flow taken at", list(FLOW_SITES), _key_for(FLOW_SITES, s["flow_site"]), 26)
-        self.flow_mode = self._combo(adv, 1, "Flow per road", list(FLOW_MODES), _key_for(FLOW_MODES, s["flow_mode"]), 26)
-        self.traffic = tk.BooleanVar(value=False)
-        ttk.Checkbutton(adv, text="Colour roads by predicted speed", variable=self.traffic,
-                        command=self.draw_map).grid(row=2, column=0, columnspan=2, sticky="w", pady=(4, 0))
-
         self.go = ttk.Button(left, text="Find routes", command=self.start_search)
-        self.go.grid(row=3, column=0, sticky="ew", pady=(14, 4), ipady=6)
+        self.go.grid(row=2, column=0, sticky="ew", pady=(4, 4), ipady=6)
         # Research: the same result on OpenStreetMap, Google-Maps-traffic style (src/GUI/web_map.py)
         self.web = ttk.Button(left, text="Open traffic map (OpenStreetMap)", command=self.open_web_map,
                               state="disabled")
-        self.web.grid(row=4, column=0, sticky="ew", pady=(0, 4))
+        self.web.grid(row=3, column=0, sticky="ew", pady=(0, 4))
         start_text = "Choose a trip and press Find routes." if HAS_TENSORFLOW else \
             "TensorFlow is not installed, so GRU and LSTM are hidden. Linear regression still works."
         self.status = ttk.Label(left, text=start_text, wraplength=330, foreground="#555")
-        self.status.grid(row=5, column=0, sticky="ew")
-        ttk.Button(left, text="Train models", command=self.open_training
-                   ).grid(row=6, column=0, sticky="ew", pady=(18, 0))
+        self.status.grid(row=4, column=0, sticky="ew")
         self.root.bind("<Return>", lambda _e: self.start_search())
 
     def _build_results(self):
@@ -188,10 +175,6 @@ class RouteApp(ttk.Frame):
     def _site(choice: str) -> str:
         return choice.split()[0]
 
-    def open_training(self):
-        """The 'Train models' window (src/GUI/train_dialog.py)."""
-        TrainDialog(self.root, HAS_TENSORFLOW, on_full_training_done=self.cost_cache.clear)
-
     def swap(self):
         o, d = self.origin.get(), self.destination.get()
         self.origin.set(d)
@@ -215,9 +198,8 @@ class RouteApp(ttk.Frame):
         job = {
             "origin": origin, "destination": dest, "when": when,
             "model": MODELS[self.model.get()], "method": METHODS[self.method.get()], "k": int(self.k.get()),
-            "flow_site": FLOW_SITES[self.flow_site.get()], "flow_mode": FLOW_MODES[self.flow_mode.get()],
         }
-        cache_key = (when, job["model"], job["flow_site"], job["flow_mode"])
+        cache_key = (when, job["model"])
         first = not self.cost_cache and job["model"] != "actual"
         self.go.configure(state="disabled")
         self.set_status("Predicting traffic and searching…" +
@@ -227,13 +209,11 @@ class RouteApp(ttk.Frame):
 
     def _worker(self, job: dict, cache_key: tuple):
         try:
-            cfg = rf.config_with(self.cfg, flow_site=job["flow_site"], flow_mode=job["flow_mode"])
             table = self.cost_cache.get(cache_key)
             if table is None:
-                table = ec.edge_costs(job["when"], job["model"], cfg)
+                table = ec.edge_costs(job["when"], job["model"], self.cfg)
             result = rf.find_routes(job["origin"], job["destination"], job["when"], job["model"],
-                                    job["method"], job["k"], cfg, edge_table=table)
-            self.result_cfg = cfg                                 # the web map predicts with the same settings
+                                    job["method"], job["k"], self.cfg, edge_table=table)
             self.jobs.put(("ok", (cache_key, result)))
         except Exception as e:                                    # shown to the user, never crashes the GUI
             self.jobs.put(("error", e))
@@ -265,8 +245,7 @@ class RouteApp(ttk.Frame):
         if self.result is None or str(self.web["state"]) == "disabled":
             return
         from src.GUI import web_map                               # imported only when used
-        result, cfg = self.result, self.result_cfg
-        s = ec.settings(cfg)
+        result, cfg = self.result, self.cfg
         self.web.configure(state="disabled")
         self.set_status("Building the traffic map: predicting every hour of the day (up to ~30 s)…")
 
@@ -274,7 +253,7 @@ class RouteApp(ttk.Frame):
             try:
                 frames = {}
                 for t in pd.date_range(result.when.normalize(), periods=24, freq="h"):
-                    key = (t, result.model, s["flow_site"], s["flow_mode"])
+                    key = (t, result.model)
                     if key not in self.cost_cache:
                         try:
                             self.cost_cache[key] = ec.edge_costs(t, result.model, cfg)
@@ -338,12 +317,6 @@ class RouteApp(ttk.Frame):
     def draw_map(self):
         ax, pos = self.ax, self.pos
         ax.clear()
-        speed = None                                              # {(a, b): km/h, average of both directions}
-        if self.traffic.get() and self.result is not None:
-            t = self.result.edge_table
-            pairs = [tuple(sorted(p)) for p in zip(t["from"], t["to"])]
-            speed = pd.Series(t["speed_kmh"].to_numpy()).groupby(pd.Series(pairs)).mean().to_dict()
-
         # 1. the whole network
         drawn = set()
         for a, b in zip(self.edges["from"], self.edges["to"]):
@@ -351,13 +324,10 @@ class RouteApp(ttk.Frame):
             if key in drawn:
                 continue
             drawn.add(key)
-            colour, width = "#c8ccd2", 1.5
-            if speed is not None and key in speed:
-                s = speed[key]
-                colour, width = ("#22c55e" if s >= 55 else "#f59e0b" if s >= 45 else "#ef4444"), 2.5
-            ax.plot(*zip(pos.loc[a], pos.loc[b]), color=colour, lw=width, zorder=1, solid_capstyle="round")
+            ax.plot(*zip(pos.loc[a], pos.loc[b]), color="#c8ccd2", lw=1.5, zorder=1, solid_capstyle="round")
 
-        # 2. other routes thin and dashed, the selected one bold (blue never clashes with traffic colours)
+        # 2. other routes thin and dashed, the selected one bold
+        #    (predicted speed per road is shown on the OpenStreetMap traffic map instead)
         selected = self.selected_route()
         if self.result is not None:
             for r in self.result.routes:
@@ -378,8 +348,6 @@ class RouteApp(ttk.Frame):
         ax.scatter(*pos.loc[o], s=150, color="#16a34a", edgecolor="white", zorder=5, label=f"Start {o}")
         ax.scatter(*pos.loc[d], s=150, color="#dc2626", edgecolor="white", marker="s", zorder=5, label=f"End {d}")
         ax.legend(loc="lower left", fontsize=8, framealpha=0.9)
-        if speed is not None:
-            ax.set_title("Predicted speed:  green ≥ 55 km/h   amber 45–55   red < 45", fontsize=9)
         ax.set_aspect(1 / np.cos(np.radians(pos["latitude"].mean())))
         ax.set_xticks([])
         ax.set_yticks([])

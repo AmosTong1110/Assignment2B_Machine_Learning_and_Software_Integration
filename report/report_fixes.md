@@ -27,7 +27,23 @@ Page numbers refer to the current PDF.
 
 ---
 
-## Fix 3: Instructions: add the traffic map (after step A.4, page 4)
+## Fix 3: Instructions: GUI changes (pages 3–4)
+
+The GUI no longer has the *Train models* button or the *Advanced* settings box, and its own map no
+longer colours roads by speed (the traffic map does that).
+
+**In step A.3, delete** the bullet "Interactive Map: Renders the Boroondara road network with road
+links color-coded by predicted traffic speed. Green = free flow / 60 km/h, and Orange/Red =
+congested / capacity speed." **and paste:**
+
+> o Map: shows the Boroondara road network with the selected route drawn bold and the other
+>   routes dashed.
+
+**Delete step A.4** ("Live Model Retraining Panel", including Quick Demo and Full Retraining)
+**and paste:**
+
+> 4. **Retraining the models** is done from the command line: `python -m src.Models.train_all`
+>    (about 20 minutes; see section 4). The trained models are already included.
 
 **Paste as a new step 5:**
 
@@ -89,7 +105,7 @@ includes:
 > | 8 | Six Part A search methods (A\*, BFS, DFS, GBFS, IDDFS, IDA\*) | `src/Search/` | Done |
 > | 9 | Up to 5 routes from origin to destination (Yen's algorithm) | `top_k.py`, `route_finder.py` | Done |
 > | 10 | Desktop GUI: trip input, settings, route table, map, step-by-step legs | `app.py` | Done |
-> | 11 | Model training window in the GUI | `train_dialog.py` | Done |
+> | 11 | Model training from the command line (all sites, all three models) | `train_all.py` | Done |
 > | 12 | Configuration file with all defaults | `config.yaml` | Done |
 > | 13 | Command-line version | `main.py --cli` | Done |
 > | 14 | Experiments and figures for the report | `experiments.py`, `experiment_figures.py` | Done |
@@ -144,7 +160,7 @@ Keep TC-01 to TC-20. **Add these rows after TC-20** (same columns):
 > | TC-42 | Divided road (two crossing points 22 m apart) | Moved to the middle of the two | Pass |
 > | TC-43 | Map data for 2000 → 3002, 3 routes | 3 routes; every road included; each route's roads join up | Pass |
 > | TC-44 | Extra prediction at 07:00 for the time slider | Slider shows 07:00 and 08:00 | Pass |
-> | TC-45 | Write the map web page | File complete, uses OpenStreetMap, data readable | Pass |
+> | TC-45 | Write the map web page | File complete, map tiles load when opened from a file, data readable | Pass |
 > | TC-46 | Command line: 2000 → 3002 at 08:00 | 5 routes, fastest first (14.6 min) | Pass |
 > | TC-47 | Command line: departure 1 Oct 01:00 | Clear error message, no crash | Pass |
 > | TC-48 | Command line: destination 1234 | Error listing the valid sites | Pass |

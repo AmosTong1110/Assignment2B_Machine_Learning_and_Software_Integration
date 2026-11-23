@@ -36,12 +36,10 @@ python main.py
 3. Click a route in the table: it is drawn bold on the map and listed step by step on the right.
 
 Settings: traffic model (GRU / LSTM / Linear / Measured), search method, number of routes (1-5).
-Advanced: where the flow is taken (origin or destination site), flow per road, and colouring
-the roads by predicted speed (green fast, red slow).
+The travel-time settings are fixed by `config.yaml` (flow taken at the origin site, per detector;
+see section 3). To see every road coloured by predicted speed, press **Open traffic map (OpenStreetMap)**.
 
-**Train models...** (bottom left) opens a window that trains Linear / LSTM / GRU and shows the
-output live. *Quick demo* (3 sites, 2 epochs, about 1 minute) writes to a temporary folder and
-does not change the saved models. *Full training* (20+ minutes) replaces them, so restart the app afterwards.
+To retrain the models, use the command line (section 4): `python -m src.Models.train_all`.
 
 Departures before about 03:00 on 1 Oct 2006 are rejected: the models need the previous 3 hours.
 
@@ -65,7 +63,7 @@ python -m src.Routing.osm_geometry          # once (internet): fix site position
 python -m src.GUI.web_map -o 2000 -d 3002 -t "2006-10-26 08:00" --model gru --timeline
 ```
 In the GUI: run a search, then press **Open traffic map (OpenStreetMap)**. The page is saved in
-`results/maps/` and opens in the browser (it loads Leaflet and the map tiles from the internet).
+`results/maps/` and opens in the browser (it loads Leaflet and the map tiles from the internet; the background comes from OpenStreetMap Germany by default, because tile.openstreetmap.org can block pages opened from a file; if a background shows "Access blocked", pick another one in the menu at the top right).
 Tick *Show original SCATS positions* to see how far each site was moved.
 
 ```bash
@@ -78,7 +76,7 @@ Saves the traffic maps and the before/after position pictures to `results/maps/s
 ```bash
 python -m src.GUI.report_figures -o 2000 -d 3002 -t "2006-10-26 08:00" --model gru
 ```
-Saves the route map, the speed-coloured map and the route table to `results/routes/`.
+Saves the route map and the route table to `results/routes/`.
 
 ### Experiments for the report
 
@@ -130,7 +128,7 @@ python -m unittest discover tests -v        # 45 tests, about a second, no Tenso
 | `src/Models/` | Tasks 1-2: data processing, linear / LSTM / GRU, evaluation, plots |
 | `src/Routing/` | Task 3-4: network (`graph_builder`), flow -> time (`travel_time`, `edge_costs`), `route_finder`, `experiments` |
 | `src/Search/` | Part A searches (DFS, BFS, GBFS, A*, IDDFS, IDA*) and `top_k.py` (Yen's algorithm for k routes) |
-| `src/GUI/` | the Tkinter GUI, the training window, the report-figure script, `web_map.py` (OSM traffic map) |
+| `src/GUI/` | the Tkinter GUI, the report-figure script, `web_map.py` (OSM traffic map), `map_screenshots.py` |
 | `tests/` | unit tests (data processing, models, travel time, graph, edge costs, top-k, route finder, OSM map); `TEST_CASES.md` = test case table for the report |
 | `data/Raw_Data/` | the VicRoads files as given (only the SCATS October 2006 .xls is read by the code) |
 | `data/Processed_Data/` | cleaned 15-min flows, site metadata, quality report, `edges.csv` (the road network) |
