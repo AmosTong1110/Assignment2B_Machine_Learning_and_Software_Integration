@@ -116,7 +116,7 @@ No internet is needed: the OSM roads are small hand-made examples.
 | MAP-07 | Divided road (two crossing nodes) | Two carriageways 22 m apart | Centre of the two crossings | Pass |
 | MAP-08 | Map data for a search | 2000 → 3002, k = 3 | 3 routes; every edge in the network; each route's edges join up | Pass |
 | MAP-09 | Time slider | Extra prediction at 07:00 | Slider steps 07:00 and 08:00 | Pass |
-| MAP-10 | HTML file is written | Write to a temporary folder | No placeholder left; OSM tiles used; data readable | Pass |
+| MAP-10 | HTML file is written | Write to a temporary folder | No placeholder left; default background from OpenStreetMap Germany plus a menu to switch background; no extra plugin; data readable | Pass |
 
 ## 10. System tests (whole program, command line)
 

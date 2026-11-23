@@ -100,7 +100,9 @@ class WebMap(unittest.TestCase):
             path = wm.write_map(self.result, out_path=Path(tmp) / "m.html")
             html = path.read_text()
         self.assertNotIn("__DATA__", html)
-        self.assertIn("tile.openstreetmap.org", html)
+        self.assertIn("tile.openstreetmap.de", html)             # default background (works from file://)
+        self.assertIn("L.control.layers", html)                  # menu to switch background if one is blocked
+        self.assertNotIn("unpkg.com", html)                      # no extra plugin to fail loading
         payload = html.split("const DATA = ", 1)[1].split(";\n", 1)[0]
         self.assertEqual(json.loads(payload)["meta"]["origin"], "2000")
 
