@@ -54,6 +54,25 @@ python main.py --cli -o 2000 -d 3002 -t "2006-10-26 17:30" --model linear --meth
 
 Methods: `AS` (A*), `BFS`, `DFS`, `GBFS`, `CUS1` (IDDFS), `CUS2` (IDA*). Models: `gru`, `lstm`, `linear`, `actual`.
 
+### Traffic map on OpenStreetMap (research)
+
+A "Google Maps Traffic"-style view of the predictions: every road coloured by predicted speed
+(each direction on its own side), the 5 routes on real OSM streets, a time slider over the day,
+and the SCATS sites moved to their real intersections.
+
+```bash
+python -m src.Routing.osm_geometry          # once (internet): fix site positions + fetch road shapes, ~2 min
+python -m src.GUI.web_map -o 2000 -d 3002 -t "2006-10-26 08:00" --model gru --timeline
+```
+In the GUI: run a search, then press **Open traffic map (OpenStreetMap)**. The page is saved in
+`results/maps/` and opens in the browser (it loads Leaflet and the map tiles from the internet).
+Tick *Show original SCATS positions* to see how far each site was moved.
+
+```bash
+python -m src.GUI.map_screenshots --times 03:00 08:00 17:00   # report pictures (needs Google Chrome)
+```
+Saves the traffic maps and the before/after position pictures to `results/maps/screenshots/`.
+
 ### Pictures for the report
 
 ```bash
@@ -67,7 +86,8 @@ Saves the route map, the speed-coloured map and the route table to `results/rout
 python -m src.Routing.experiments            # all four, about 30 s
 python -m src.Routing.experiments --only methods time     # or: flow_mode, models
 ```
-Writes four tables (and a chart) to `results/experiments/`, all on Thu 26 Oct 2006 (test week):
+Writes four tables (and a chart) to `results/experiments/`, all on Thu 26 Oct 2006 (test week).
+`python -m src.Routing.experiment_figures` then draws one figure per table (`fig1`–`fig4`):
 
 | File | Question it answers |
 |---|---|
@@ -99,7 +119,7 @@ python -m src.Routing.edge_costs --time "2006-10-26 08:00" --model gru     # tra
 ## 5. Tests
 
 ```bash
-python -m unittest discover tests -v        # 20 tests, about a second, no TensorFlow needed
+python -m unittest discover tests -v        # 45 tests, about a second, no TensorFlow needed
 ```
 
 ## 6. Project layout
@@ -110,8 +130,8 @@ python -m unittest discover tests -v        # 20 tests, about a second, no Tenso
 | `src/Models/` | Tasks 1-2: data processing, linear / LSTM / GRU, evaluation, plots |
 | `src/Routing/` | Task 3-4: network (`graph_builder`), flow -> time (`travel_time`, `edge_costs`), `route_finder`, `experiments` |
 | `src/Search/` | Part A searches (DFS, BFS, GBFS, A*, IDDFS, IDA*) and `top_k.py` (Yen's algorithm for k routes) |
-| `src/GUI/` | the Tkinter GUI, the training window and the report-figure script |
-| `tests/` | unit tests (travel time, graph, edge costs, top-k, route finder) |
+| `src/GUI/` | the Tkinter GUI, the training window, the report-figure script, `web_map.py` (OSM traffic map) |
+| `tests/` | unit tests (data processing, models, travel time, graph, edge costs, top-k, route finder, OSM map); `TEST_CASES.md` = test case table for the report |
 | `data/Raw_Data/` | the VicRoads files as given (only the SCATS October 2006 .xls is read by the code) |
 | `data/Processed_Data/` | cleaned 15-min flows, site metadata, quality report, `edges.csv` (the road network) |
 | `saved_models/` | trained models: `linear/` (.joblib), `lstm/` and `gru/` (.keras + scaler per site) |
@@ -119,12 +139,16 @@ python -m unittest discover tests -v        # 20 tests, about a second, no Tenso
 | `results/plots/` | model comparison plots (1-4) and `network_map.png` |
 | `results/routes/` | route maps and tables from `report_figures` |
 | `results/experiments/` | the four experiment tables and the time-of-day chart |
+| `results/maps/` | HTML traffic maps from `web_map`; `screenshots/` = report pictures + `site_offsets.csv` |
+| `report/` | drafts for the written report: `research_section.md`, `report_fixes.md` |
+| `src/Routing/osm_geometry.py` | coordinate correction (Overpass) and road shapes (OSRM) -> `site_coords_osm.csv`, `edge_geometry_osm.json` |
 | `assignment_info/` | the assignment brief and the flow-to-travel-time PDF |
 
 ## 7. Known limits
 
 - Edge length is the straight-line distance between two sites, not the road length.
-- SCATS coordinates are slightly off the real intersections; 6 links between roads that change
+- SCATS coordinates are slightly off the real intersections. The OSM map uses corrected positions,
+  but routing still uses the SCATS ones (so the numbers match the rest of the report). 6 links between roads that change
   name were added by hand (`EXTRA_EDGES` in `src/Routing/graph_builder.py`).
 - Sites 3685 and 4264 have no trained model (low data quality) and use the historical average flow.
 - Only October 2006 can be queried.
