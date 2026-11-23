@@ -69,6 +69,7 @@ class RouteApp(ttk.Frame):
         self.pos = self.nodes.set_index("scats_number")[["longitude", "latitude"]]
 
         self.result: rf.RouteResult | None = None
+        self.result_cfg: dict = self.cfg                        # settings used for self.result
         self.cost_cache: dict[tuple, pd.DataFrame] = {}     # (time, model, flow_site, flow_mode) -> edge table
         self.jobs: queue.Queue = queue.Queue()
 
@@ -123,12 +124,16 @@ class RouteApp(ttk.Frame):
 
         self.go = ttk.Button(left, text="Find routes", command=self.start_search)
         self.go.grid(row=3, column=0, sticky="ew", pady=(14, 4), ipady=6)
+        # Research: the same result on OpenStreetMap, Google-Maps-traffic style (src/GUI/web_map.py)
+        self.web = ttk.Button(left, text="Open traffic map (OpenStreetMap)", command=self.open_web_map,
+                              state="disabled")
+        self.web.grid(row=4, column=0, sticky="ew", pady=(0, 4))
         start_text = "Choose a trip and press Find routes." if HAS_TENSORFLOW else \
             "TensorFlow is not installed, so GRU and LSTM are hidden. Linear regression still works."
         self.status = ttk.Label(left, text=start_text, wraplength=330, foreground="#555")
-        self.status.grid(row=4, column=0, sticky="ew")
+        self.status.grid(row=5, column=0, sticky="ew")
         ttk.Button(left, text="Train models", command=self.open_training
-                   ).grid(row=5, column=0, sticky="ew", pady=(18, 0))
+                   ).grid(row=6, column=0, sticky="ew", pady=(18, 0))
         self.root.bind("<Return>", lambda _e: self.start_search())
 
     def _build_results(self):
@@ -228,6 +233,7 @@ class RouteApp(ttk.Frame):
                 table = ec.edge_costs(job["when"], job["model"], cfg)
             result = rf.find_routes(job["origin"], job["destination"], job["when"], job["model"],
                                     job["method"], job["k"], cfg, edge_table=table)
+            self.result_cfg = cfg                                 # the web map predicts with the same settings
             self.jobs.put(("ok", (cache_key, result)))
         except Exception as e:                                    # shown to the user, never crashes the GUI
             self.jobs.put(("error", e))
@@ -250,6 +256,41 @@ class RouteApp(ttk.Frame):
         cache_key, result = payload
         self.cost_cache[cache_key] = result.edge_table
         self.show_result(result)
+        self.web.configure(state="normal" if result.routes else "disabled")
+
+    # ------------------------------------------------------------------
+    # Web map (Research): every hour of the day is predicted for the time slider
+    # ------------------------------------------------------------------
+    def open_web_map(self):
+        if self.result is None or str(self.web["state"]) == "disabled":
+            return
+        from src.GUI import web_map                               # imported only when used
+        result, cfg = self.result, self.result_cfg
+        s = ec.settings(cfg)
+        self.web.configure(state="disabled")
+        self.set_status("Building the traffic map: predicting every hour of the day (up to ~30 s)…")
+
+        def work():
+            try:
+                frames = {}
+                for t in pd.date_range(result.when.normalize(), periods=24, freq="h"):
+                    key = (t, result.model, s["flow_site"], s["flow_mode"])
+                    if key not in self.cost_cache:
+                        try:
+                            self.cost_cache[key] = ec.edge_costs(t, result.model, cfg)
+                        except ValueError:                        # no 3 h history (1 Oct, early morning)
+                            continue
+                    frames[t] = self.cost_cache[key]
+                path = web_map.write_map(result, cfg, frames)
+                web_map.open_in_browser(path)
+                self.root.after(0, lambda: self.set_status(f"Traffic map opened in your browser ({path.name})."))
+            except Exception as e:
+                msg = str(e)
+                self.root.after(0, lambda: self.set_status("Could not build the map. " + msg, True))
+            finally:
+                self.root.after(0, lambda: self.web.configure(state="normal"))
+
+        threading.Thread(target=work, daemon=True).start()
 
     # ------------------------------------------------------------------
     # Showing the result
