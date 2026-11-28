@@ -37,10 +37,7 @@ from src.Search import SEARCH_METHODS
 TEMPLATE = Path(__file__).with_name("web_map_template.html")
 MODEL_NAMES = {"gru": "GRU", "lstm": "LSTM", "linear": "Linear regression", "actual": "Measured flow"}
 
-
-# --------------------------------------------------------------------------
 # Data for the page
-# --------------------------------------------------------------------------
 def site_positions(cfg: dict = None, use_osm: bool = True) -> pd.DataFrame:
     """scats_number, latitude, longitude (corrected if available), raw_latitude, raw_longitude, offset_m, method."""
     nodes = load_nodes(cfg).rename(columns={"latitude": "raw_latitude", "longitude": "raw_longitude"})
@@ -57,7 +54,6 @@ def site_positions(cfg: dict = None, use_osm: bool = True) -> pd.DataFrame:
         out["method"] = out["method"].fillna("unchanged")
     return out
 
-
 def timeline_tables(when: pd.Timestamp, model: str, cfg: dict, step_hours: int = 1,
                     progress=None) -> dict[pd.Timestamp, pd.DataFrame]:
     """edge_costs() for every `step_hours` of the trip day (skips times without 3 h of history)."""
@@ -69,10 +65,9 @@ def timeline_tables(when: pd.Timestamp, model: str, cfg: dict, step_hours: int =
             progress(i, len(times))
         try:
             tables[t] = ec.edge_costs(t, model, cfg)
-        except ValueError:                       # e.g. 1 Oct before 03:00 - no history for the models
+        except ValueError:  # e.g. 1 Oct before 03:00 - no history for the models
             continue
     return tables
-
 
 def page_data(result: rf.RouteResult, cfg: dict = None, frames: dict | None = None,
               use_osm: bool = True) -> dict:
@@ -96,7 +91,7 @@ def page_data(result: rf.RouteResult, cfg: dict = None, frames: dict | None = No
     index = {(e["from"], e["to"]): i for i, e in enumerate(edges)}
 
     frames = dict(frames or {})
-    frames[result.when] = result.edge_table                     # the departure time is always there
+    frames[result.when] = result.edge_table  # the departure time is always there
     frame_list = []
     for t in sorted(frames):
         f = frames[t].set_index(["from", "to"]).loc[list(zip(table["from"], table["to"]))]
@@ -127,16 +122,12 @@ def page_data(result: rf.RouteResult, cfg: dict = None, frames: dict | None = No
         "routes": routes,
     }
 
-
-# --------------------------------------------------------------------------
 # HTML
-# --------------------------------------------------------------------------
 def render_html(data: dict) -> str:
     """The template with the data inserted (one file, nothing else to copy)."""
     payload = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
     title = f"TBRGS traffic map - {data['meta']['origin']} to {data['meta']['destination']}"
     return TEMPLATE.read_text(encoding="utf-8").replace("__TITLE__", title).replace("__DATA__", payload)
-
 
 def write_map(result: rf.RouteResult, cfg: dict = None, frames: dict | None = None,
               out_path: Path | None = None, use_osm: bool = True) -> Path:
@@ -150,10 +141,8 @@ def write_map(result: rf.RouteResult, cfg: dict = None, frames: dict | None = No
     out_path.write_text(render_html(page_data(result, cfg, frames, use_osm)), encoding="utf-8")
     return out_path
 
-
 def open_in_browser(path: Path) -> None:
     webbrowser.open(Path(path).resolve().as_uri())
-
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Open the route search on an OpenStreetMap traffic map")
@@ -181,7 +170,6 @@ def main() -> None:
     print(f"\nMap written to {path}")
     if not args.no_open:
         open_in_browser(path)
-
 
 if __name__ == "__main__":
     main()

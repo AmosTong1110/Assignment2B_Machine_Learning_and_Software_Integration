@@ -1,6 +1,5 @@
 """Node used by the tree-based search algorithms (unchanged from Assignment 2A)."""
 
-
 class Node:
     """One node in the search tree."""
 

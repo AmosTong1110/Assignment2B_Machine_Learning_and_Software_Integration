@@ -19,10 +19,8 @@ from src.Routing import osm_geometry as og
 from src.Routing import route_finder as rf
 from src.Routing.graph_builder import load_edges
 
-
 def way(name, points):
     return {"type": "way", "tags": {"name": name}, "geometry": [{"lat": a, "lon": b} for a, b in points]}
-
 
 def fake_edge_table(flow_vph: float = 600.0) -> pd.DataFrame:
     t = load_edges().copy()
@@ -31,20 +29,18 @@ def fake_edge_table(flow_vph: float = 600.0) -> pd.DataFrame:
     t["travel_time_s"] = t["distance_km"] / 50.0 * 3600 + 30
     return t
 
-
 class RoadNames(unittest.TestCase):
-    def test_scats_and_osm_names_match(self):                           # MAP-01
+    def test_scats_and_osm_names_match(self):  # MAP-01
         self.assertEqual(og.road_key("WARRIGAL_RD"), og.road_key("Warrigal Road"))
         self.assertEqual(og.road_key("BURWOOD_HWY"), og.road_key("Burwood Highway"))
         self.assertEqual(og.road_key("STUDLEY PARK_RD"), og.road_key("Studley Park Road"))
         self.assertEqual(og.road_key("SEYMOUR_GV"), og.road_key("Seymour Grove"))
 
-    def test_different_roads_differ(self):                              # MAP-02
+    def test_different_roads_differ(self):  # MAP-02
         self.assertNotEqual(og.road_key("HIGH_ST"), og.road_key("High Street Road"))
 
-    def test_site_label_split(self):                                    # MAP-03
+    def test_site_label_split(self):  # MAP-03
         self.assertEqual(og.site_road_keys("TOORAK_RD / WARRIGAL_RD"), {"TOORAKRD", "WARRIGALRD"})
-
 
 class Intersection(unittest.TestCase):
     # A cross: "Main Road" runs east-west, "Side Street" north-south; they share node (0, 0).
@@ -74,14 +70,13 @@ class Intersection(unittest.TestCase):
         fix = og.find_intersection(0.0007, 0.0, {"MAINRD", "SIDEST"}, ways)
         self.assertAlmostEqual(fix["latitude"], 0.0001)
 
-
 class WebMap(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.result = rf.find_routes("2000", "3002", "2006-10-26 08:00", "actual", "AS", 3,
                                     edge_table=fake_edge_table())
 
-    def test_page_data_has_routes_and_edges(self):                      # MAP-08
+    def test_page_data_has_routes_and_edges(self):  # MAP-08
         data = wm.page_data(self.result)
         self.assertEqual(len(data["routes"]), 3)
         self.assertEqual(len(data["edges"]), len(self.result.edge_table))
@@ -90,22 +85,21 @@ class WebMap(unittest.TestCase):
         ends = [(data["edges"][i]["from"], data["edges"][i]["to"]) for i in first["edges"]]
         self.assertEqual([a for a, _ in ends] + [ends[-1][1]], first["path"])
 
-    def test_extra_frames_become_slider_steps(self):                    # MAP-09
+    def test_extra_frames_become_slider_steps(self):  # MAP-09
         frames = {pd.Timestamp("2006-10-26 07:00"): fake_edge_table(300.0)}
         data = wm.page_data(self.result, frames=frames)
         self.assertEqual([f["time"] for f in data["frames"]], ["07:00", "08:00"])
 
-    def test_html_is_written_with_data(self):                           # MAP-10
+    def test_html_is_written_with_data(self):  # MAP-10
         with tempfile.TemporaryDirectory() as tmp:
             path = wm.write_map(self.result, out_path=Path(tmp) / "m.html")
             html = path.read_text()
         self.assertNotIn("__DATA__", html)
-        self.assertIn("tile.openstreetmap.de", html)             # default background (works from file://)
-        self.assertIn("L.control.layers", html)                  # menu to switch background if one is blocked
-        self.assertNotIn("unpkg.com", html)                      # no extra plugin to fail loading
+        self.assertIn("tile.openstreetmap.de", html)  # default background (works from file://)
+        self.assertIn("L.control.layers", html)  # menu to switch background if one is blocked
+        self.assertNotIn("unpkg.com", html)  # no extra plugin to fail loading
         payload = html.split("const DATA = ", 1)[1].split(";\n", 1)[0]
         self.assertEqual(json.loads(payload)["meta"]["origin"], "2000")
-
 
 if __name__ == "__main__":
     unittest.main()

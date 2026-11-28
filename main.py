@@ -7,7 +7,6 @@ TBRGS - Traffic-Based Route Guidance System for Boroondara (COS30019 Assignment 
 """
 import sys
 
-
 def main() -> None:
     if "--cli" in sys.argv:
         sys.argv.remove("--cli")
@@ -16,7 +15,6 @@ def main() -> None:
     else:
         from src.GUI.app import run
         run()
-
 
 if __name__ == "__main__":
     main()

@@ -10,7 +10,6 @@ import math
 from .heuristic import longest_edge_length, nearest_destination_distance
 from .node import Node
 
-
 def ida_star(problem):
     """Return (goal Node or None, number of Nodes created)."""
 
@@ -33,7 +32,7 @@ def ida_star(problem):
 
     # Origin is counted at the start of every round (same rule as IDDFS).
     nodes_created = 0
-    threshold = heuristic(start.node_id)   # measured in MOVES
+    threshold = heuristic(start.node_id)  # measured in MOVES
     path_ids = {start.node_id}
 
     def bounded_search(current, moves, limit):

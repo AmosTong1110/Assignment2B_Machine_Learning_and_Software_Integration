@@ -25,7 +25,6 @@ import src.Models.linear_regression_model as lm
 
 MODEL_NAME = "Linear Regression"
 
-
 def main(processed_dir=None, models_dir=None, results_dir=None, cfg: dict = None) -> pd.DataFrame:
     """Train + evaluate on every evaluation site. Any folder left as None comes from config.yaml."""
     cfg = cfg or dc.load_config()
@@ -52,7 +51,7 @@ def main(processed_dir=None, models_dir=None, results_dir=None, cfg: dict = None
         model = lm.fit(X_tr, y_tr)
         seconds = time.time() - t0
 
-        y_pred = model.predict(X_te).clip(min=0)           # flow cannot be negative
+        y_pred = model.predict(X_te).clip(min=0)  # flow cannot be negative
         truth = ev.get_test_truth(clean, site)
         assert (times.iloc[-ev.TEST_SIZE:].to_numpy() == truth["datetime"].to_numpy()).all(), \
             "test rows are not aligned with the shared answer key"
@@ -72,7 +71,6 @@ def main(processed_dir=None, models_dir=None, results_dir=None, cfg: dict = None
     print("\n" + summary.to_string())
     print(f"\nSaved models to {models_dir} and results to {results_dir}")
     return results
-
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=f"Train and evaluate {MODEL_NAME} for every SCATS site")

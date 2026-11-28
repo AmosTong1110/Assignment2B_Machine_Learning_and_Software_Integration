@@ -39,13 +39,11 @@ CHROME_CANDIDATES = [
     "google-chrome", "chromium", "chromium-browser",
 ]
 
-
 def find_chrome() -> str:
     for c in [os.environ.get("CHROME", "")] + CHROME_CANDIDATES:
         if c and (Path(c).exists() or shutil.which(c)):
             return c
     raise RuntimeError("Google Chrome not found. Set CHROME=/path/to/chrome and run again.")
-
 
 def screenshot(chrome: str, html: Path, out_png: Path, view: str = "", size=(1600, 1000)) -> Path:
     """Open html#view in headless Chrome, wait for the tiles, save a PNG."""
@@ -56,7 +54,6 @@ def screenshot(chrome: str, html: Path, out_png: Path, view: str = "", size=(160
                    check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)
     print(f"  saved {out_png}")
     return out_png
-
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Screenshots of the OSM traffic map for the report")
@@ -98,7 +95,6 @@ def main() -> None:
         sites.to_csv(out / "site_offsets.csv", index=False)
         print("\n" + summary(sites, load_edge_geometry(cfg)))
         print(f"\nOffsets per site: {out / 'site_offsets.csv'}")
-
 
 if __name__ == "__main__":
     main()

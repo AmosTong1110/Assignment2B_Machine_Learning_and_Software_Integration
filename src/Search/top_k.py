@@ -18,12 +18,10 @@ not necessarily the k cheapest; they are sorted by cost before they are returned
 """
 import heapq
 
-
 def route_cost(edges, path):
     """Total cost of a path, from the problem's edge lists."""
     lookup = {(a, b): c for a, nbrs in edges.items() for b, c in nbrs}
     return sum(lookup[(a, b)] for a, b in zip(path, path[1:]))
-
 
 def k_routes(problem, search, k=5):
     """
@@ -41,7 +39,7 @@ def k_routes(problem, search, k=5):
     first = goal.path()
     accepted = [(first, route_cost(problem.edges, first))]
     seen = {tuple(first)}
-    candidates = []                     # heap of (cost, tie-break counter, path)
+    candidates = []  # heap of (cost, tie-break counter, path)
     counter = 0
 
     while len(accepted) < k:
@@ -70,7 +68,7 @@ def k_routes(problem, search, k=5):
             heapq.heappush(candidates, (route_cost(problem.edges, path), counter, path))
 
         if not candidates:
-            break                       # fewer than k different routes exist
+            break  # fewer than k different routes exist
         cost, _, path = heapq.heappop(candidates)
         accepted.append((path, cost))
 

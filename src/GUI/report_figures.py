@@ -22,7 +22,6 @@ import src.Models.deep_common as dc
 from src.GUI.app import RouteApp
 from src.Routing import route_finder as rf
 
-
 def save_figures(origin: str, destination: str, when: str, model: str, method: str = "AS") -> list:
     cfg = dc.load_config()
     result = rf.find_routes(origin, destination, when, model, method, cfg=cfg)
@@ -31,9 +30,9 @@ def save_figures(origin: str, destination: str, when: str, model: str, method: s
     stem = out / f"route_{result.origin}_{result.destination}_{result.when:%H%M}_{model}"
 
     root = tk.Tk()
-    root.withdraw()                                      # no window needed, only the drawing
+    root.withdraw()  # no window needed, only the drawing
     app = RouteApp(root)
-    app.show_result(result)                              # selects route 1 and draws the map
+    app.show_result(result)  # selects route 1 and draws the map
     files = [f"{stem}_route1.png", f"{stem}_routes.csv"]
     app.fig.savefig(files[0], dpi=150, bbox_inches="tight")
     root.destroy()
@@ -42,7 +41,6 @@ def save_figures(origin: str, destination: str, when: str, model: str, method: s
                    "intersections": len(r.path) - 1, "path": " -> ".join(r.path),
                    "roads": " -> ".join(r.roads)} for r in result.routes]).to_csv(files[1], index=False)
     return files
-
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Save GUI route maps and the route table for the report")
@@ -54,7 +52,6 @@ def main() -> None:
     args = ap.parse_args()
     for f in save_figures(args.origin, args.destination, args.time, args.model, args.method):
         print("Saved ->", f)
-
 
 if __name__ == "__main__":
     main()

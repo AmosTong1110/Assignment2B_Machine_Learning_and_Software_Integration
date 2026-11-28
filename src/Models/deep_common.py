@@ -30,7 +30,7 @@ import time
 from functools import lru_cache
 from pathlib import Path
 
-os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")      # hide TensorFlow info spam
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")  # hide TensorFlow info spam
 
 import numpy as np
 import pandas as pd
@@ -39,12 +39,10 @@ import yaml
 import src.Models.data_processing as dp
 import src.Models.evaluate as ev
 
-ROOT = Path(__file__).resolve().parents[2]              # project root (folder above src/)
+ROOT = Path(__file__).resolve().parents[2]  # project root (folder above src/)
 SLOTS_PER_DAY = dp.SLOTS_PER_DAY
 
-# --------------------------------------------------------------------------
 # Config  (config.yaml overrides these defaults)
-# --------------------------------------------------------------------------
 DEFAULTS = {
     "paths": {"processed_dir": "data/Processed_Data", "models_dir": "saved_models",
               "results_dir": "results"},
@@ -54,7 +52,6 @@ DEFAULTS = {
     "model": {"units": 64, "dense_units": 32, "dropout": 0.1},
     "plots": {"site": "2000", "days": 3},
 }
-
 
 def load_config(path=None) -> dict:
     """Read config.yaml and fill any missing value with the default above."""
@@ -66,16 +63,12 @@ def load_config(path=None) -> dict:
             cfg.setdefault(section, {}).update(values or {})
     return cfg
 
-
 def get_path(cfg: dict, name: str) -> Path:
     """Absolute path of one entry in cfg['paths'] (relative to the project root)."""
     p = Path(cfg["paths"][name])
     return p if p.is_absolute() else ROOT / p
 
-
-# --------------------------------------------------------------------------
 # The network
-# --------------------------------------------------------------------------
 def build_model(layer_name: str, cfg: dict):
     """layer_name is 'LSTM' or 'GRU' - the only difference between the two models."""
     from tensorflow import keras
@@ -95,7 +88,6 @@ def build_model(layer_name: str, cfg: dict):
     model.compile(optimizer=keras.optimizers.Adam(t["learning_rate"]), loss="mse")
     return model
 
-
 def fit(layer_name: str, seq, aux, y, cfg: dict):
     """
     Train on (seq, aux, y) - all already scaled / in time order.
@@ -104,7 +96,7 @@ def fit(layer_name: str, seq, aux, y, cfg: dict):
     """
     from tensorflow import keras
     t = cfg["training"]
-    keras.utils.set_random_seed(t["seed"])              # reproducible results
+    keras.utils.set_random_seed(t["seed"])  # reproducible results
     model = build_model(layer_name, cfg)
 
     n_val = t["val_days"] * SLOTS_PER_DAY
@@ -117,10 +109,7 @@ def fit(layer_name: str, seq, aux, y, cfg: dict):
                      shuffle=True, callbacks=[stop], verbose=0)
     return model, hist.history
 
-
-# --------------------------------------------------------------------------
 # Save / load
-# --------------------------------------------------------------------------
 def save_model(model, scaler: dp.MinMax, key: str, site: str, models_dir) -> Path:
     """Save <site>.keras and <site>_scaler.json (same JSON keys as before)."""
     path = Path(models_dir) / key / f"{site}.keras"
@@ -129,8 +118,7 @@ def save_model(model, scaler: dp.MinMax, key: str, site: str, models_dir) -> Pat
     (path.parent / f"{site}_scaler.json").write_text(json.dumps(scaler.to_dict()))
     return path
 
-
-@lru_cache(maxsize=64)
+@lru_cache(maxsize=128)  # GRU + LSTM = 76 models, so 64 would reload them when the model is switched
 def _load_cached(key: str, site: str, models_dir: str):
     from tensorflow import keras
     folder = Path(models_dir) / key
@@ -138,15 +126,11 @@ def _load_cached(key: str, site: str, models_dir: str):
     scaler = dp.MinMax.from_dict(json.loads((folder / f"{site}_scaler.json").read_text()))
     return model, scaler
 
-
 def load_model(key: str, site: str, models_dir):
     """Returns (keras model, dp.MinMax scaler)."""
     return _load_cached(key, site, str(models_dir))
 
-
-# --------------------------------------------------------------------------
 # Training loop for all sites (called by train_lstm.py / train_all.py)
-# --------------------------------------------------------------------------
 def train_deep(name: str, key: str, layer_name: str, cfg: dict = None,
                sites: list[str] = None) -> pd.DataFrame:
     """
@@ -202,15 +186,11 @@ def train_deep(name: str, key: str, layer_name: str, cfg: dict = None,
     print(f"{name}: mean MAE {metrics['mae'].mean():.2f}, mean RMSE {metrics['rmse'].mean():.2f}")
     return metrics
 
-
-# --------------------------------------------------------------------------
 # Predict (used later by the route finder, Task 3 / 4)
-# --------------------------------------------------------------------------
 @lru_cache(maxsize=1)
 def _load_clean(processed_dir: str) -> pd.DataFrame:
     return pd.read_csv(Path(processed_dir) / "scats_clean_15min.csv",
                        dtype={"scats_number": str}, parse_dates=["datetime"])
-
 
 def predict(key: str, site: str, when, clean: pd.DataFrame = None, cfg: dict = None) -> float:
     """
@@ -230,22 +210,32 @@ def predict(key: str, site: str, when, clean: pd.DataFrame = None, cfg: dict = N
     y = sc.inverse(model.predict([seq, aux], verbose=0).reshape(-1))[0]
     return float(max(0.0, y))
 
-
 def predict_hourly(key: str, site: str, when, **kwargs) -> float:
     """Same as predict(), but in vehicles per HOUR (15-min count x 4)."""
     return 4.0 * predict(key, site, when, **kwargs)
 
+# Command-line helper shared by train_lstm.py and train_gru.py
+def use_quick_test_folders(cfg: dict) -> dict:
+    """
+    Quick tests (--sites / --epochs) must NOT overwrite the real trained models and results,
+    so their files go to a 'quick_test' sub-folder of models_dir and results_dir.
+    (For a real run with other settings, change config.yaml instead.)
+    """
+    for name in ("models_dir", "results_dir"):
+        cfg["paths"][name] = str(Path(cfg["paths"][name]) / "quick_test")
+    print(f"Quick test: models go to {cfg['paths']['models_dir']}, results to "
+          f"{cfg['paths']['results_dir']} (the real files are not touched)")
+    return cfg
 
-# --------------------------------------------------------------------------
-# Command-line helper shared by train_lstm.py (and train_gru.py if you add it)
-# --------------------------------------------------------------------------
 def run_cli(name: str, key: str, layer_name: str) -> None:
     ap = argparse.ArgumentParser(description=f"Train and evaluate {name} for every SCATS site")
     ap.add_argument("--config", default=None, help="path to config.yaml (default: project root)")
     ap.add_argument("--sites", nargs="+", default=None, help="only these SCATS sites (quick test)")
-    ap.add_argument("--epochs", type=int, default=None, help="override max epochs")
+    ap.add_argument("--epochs", type=int, default=None, help="override max epochs (quick test)")
     args = ap.parse_args()
     cfg = load_config(args.config)
     if args.epochs:
         cfg["training"]["epochs"] = args.epochs
+    if args.sites or args.epochs:
+        use_quick_test_folders(cfg)  # keep the real models and results safe
     train_deep(name, key, layer_name, cfg, args.sites)

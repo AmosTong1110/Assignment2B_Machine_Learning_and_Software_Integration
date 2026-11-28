@@ -3,11 +3,9 @@
 from .heuristic import cost_heuristic
 from .node import Node
 
-
 def heuristic(node_id, problem):
     """Return the heuristic value from a node to the closest destination."""
     return cost_heuristic(problem, node_id)
-
 
 def greedy_best_first(problem):
     """Return the first goal node found and the number of Nodes created."""

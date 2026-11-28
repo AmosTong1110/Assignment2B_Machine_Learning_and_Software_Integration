@@ -38,32 +38,27 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-# --------------------------------------------------------------------------
 # Configuration (keep every "magic number" here, so the report can cite it)
 # Only CLEANING settings live here. Modelling settings (lags, epochs, ...)
 # are in config.yaml.
-# --------------------------------------------------------------------------
 CONFIG = {
     "sheet": "Data",
-    "header_row": 1,              # real header is on the 2nd row of the sheet
-    "slots_per_day": 96,          # 24h x 4 (15-minute intervals)
-    "faulty_zero_share": 0.30,    # detector with >30% zeros all month = (near-)dead
-    "outage_zero_run": 8,         # site total = 0 for >= 8 slots (2h) = outage
-    "spike_mads": 8.0,            # spike = > median + 8 robust SDs (same slot)
-    "spike_min_excess": 60,       # ...and at least 60 veh/15min above median
-    "spike_min_ratio": 1.5,       # ...and at least 50% above the typical value
-    "max_interp_gap": 4,          # interpolate gaps up to 4 slots (1h)
-    "max_imputed_share": 0.25,    # site with >25% imputed values = low quality
-    "max_plausible_flow": 1600,   # veh / 15 min at one site (observed max ~1,400)
+    "header_row": 1,  # real header is on the 2nd row of the sheet
+    "slots_per_day": 96,  # 24h x 4 (15-minute intervals)
+    "faulty_zero_share": 0.30,  # detector with >30% zeros all month = (near-)dead
+    "outage_zero_run": 8,  # site total = 0 for >= 8 slots (2h) = outage
+    "spike_mads": 8.0,  # spike = > median + 8 robust SDs (same slot)
+    "spike_min_excess": 60,  # ...and at least 60 veh/15min above median
+    "spike_min_ratio": 1.5,  # ...and at least 50% above the typical value
+    "max_interp_gap": 4,  # interpolate gaps up to 4 slots (1h)
+    "max_imputed_share": 0.25,  # site with >25% imputed values = low quality
+    "max_plausible_flow": 1600,  # veh / 15 min at one site (observed max ~1,400)
 }
 SLOTS_PER_DAY = CONFIG["slots_per_day"]
-RAW_XLS = "data/Raw_Data/Scats Data October 2006.xls"   # single source for the raw file name
+RAW_XLS = "data/Raw_Data/Scats Data October 2006.xls"  # single source for the raw file name
 FLOW_COLS = [f"V{i:02d}" for i in range(SLOTS_PER_DAY)]
 
-
-# --------------------------------------------------------------------------
 # 1. Load
-# --------------------------------------------------------------------------
 def load_raw(xls_path: str) -> pd.DataFrame:
     """Read the 'Data' sheet. SCATS numbers stay as 4-char strings ('0970')."""
     df = pd.read_excel(
@@ -78,10 +73,7 @@ def load_raw(xls_path: str) -> pd.DataFrame:
     df[FLOW_COLS] = df[FLOW_COLS].apply(pd.to_numeric, errors="coerce")
     return df
 
-
-# --------------------------------------------------------------------------
 # 2. Remove (nearly) dead detectors
-# --------------------------------------------------------------------------
 def drop_faulty_detectors(df: pd.DataFrame):
     """
     A detector (one approach of an intersection) that reads 0 for a large share
@@ -103,10 +95,7 @@ def drop_faulty_detectors(df: pd.DataFrame):
         df = df.loc[~np.array(mask)].copy()
     return df, faulty
 
-
-# --------------------------------------------------------------------------
 # 3. One time series per site
-# --------------------------------------------------------------------------
 def build_site_series(df: pd.DataFrame):
     """
     Sum all detector rows of a site for each day -> intersection volume.
@@ -118,20 +107,17 @@ def build_site_series(df: pd.DataFrame):
     """
     days = pd.date_range(df["day"].min(), df["day"].max(), freq="D")
     n_rows = df.groupby(["SCATS Number", "day"]).size().unstack(0).reindex(days)
-    usual = n_rows.apply(lambda s: s.mode().iloc[0])          # modal #detectors
-    incomplete = n_rows.ne(usual, axis=1) | n_rows.isna()     # days x sites
+    usual = n_rows.apply(lambda s: s.mode().iloc[0])  # modal #detectors
+    incomplete = n_rows.ne(usual, axis=1) | n_rows.isna()  # days x sites
 
     series = {}
     for site, g in df.groupby("SCATS Number"):
         daily = g.groupby("day")[FLOW_COLS].sum(min_count=1).reindex(days)
         daily.loc[incomplete[site].to_numpy()] = np.nan
-        series[site] = daily.to_numpy(dtype=float)            # (days, 96)
+        series[site] = daily.to_numpy(dtype=float)  # (days, 96)
     return series, days, incomplete
 
-
-# --------------------------------------------------------------------------
 # 4. Flag bad values
-# --------------------------------------------------------------------------
 def _zero_runs(is_zero: np.ndarray, min_len: int) -> np.ndarray:
     """Boolean mask of positions inside runs of >= min_len consecutive True."""
     out = np.zeros_like(is_zero, dtype=bool)
@@ -145,10 +131,9 @@ def _zero_runs(is_zero: np.ndarray, min_len: int) -> np.ndarray:
             start = None
     return out
 
-
 def flag_bad_values(series: dict, days: pd.DatetimeIndex):
     """Set outages and spikes to NaN. Returns cleaned dict + counts per site."""
-    dow = days.dayofweek.to_numpy()
+    dow = days.day_of_week.to_numpy()
     log = {}
     for site, arr in series.items():
         flat = arr.reshape(-1)
@@ -176,10 +161,7 @@ def flag_bad_values(series: dict, days: pd.DatetimeIndex):
         log[site] = {"outage_values": int(outage.sum()), "spike_values": int(spike.sum())}
     return series, log
 
-
-# --------------------------------------------------------------------------
 # 5. Fill gaps
-# --------------------------------------------------------------------------
 def fill_gaps(series: dict, days: pd.DatetimeIndex) -> pd.DataFrame:
     """
     Short gaps (<= 1h)  -> linear interpolation.
@@ -195,18 +177,18 @@ def fill_gaps(series: dict, days: pd.DatetimeIndex) -> pd.DataFrame:
 
         # pandas' interpolate(limit=4) also fills the FIRST 4 slots of a long gap.
         # Measure each gap and only interpolate the ones that are really short.
-        gap_id = was_nan.ne(was_nan.shift()).cumsum()               # id per run of NaN/non-NaN
-        gap_len = was_nan.groupby(gap_id).transform("sum")          # length of the run
+        gap_id = was_nan.ne(was_nan.shift()).cumsum()  # id per run of NaN/non-NaN
+        gap_len = was_nan.groupby(gap_id).transform("sum")  # length of the run
         short_gap = was_nan & (gap_len <= CONFIG["max_interp_gap"])
         interp = s.interpolate(method="linear", limit_area="inside")
         s = s.where(~short_gap, interp)
 
         still = s.isna()
         if still.any():
-            keys = [s.index.dayofweek, s.index.hour * 4 + s.index.minute // 15]
-            profile = s.groupby(keys).transform("mean")            # weekday+slot mean
+            keys = [s.index.day_of_week, s.index.hour * 4 + s.index.minute // 15]
+            profile = s.groupby(keys).transform("mean")  # weekday+slot mean
             s = s.fillna(profile)
-            s = s.fillna(s.groupby(keys[1]).transform("mean"))      # fallback: slot mean
+            s = s.fillna(s.groupby(keys[1]).transform("mean"))  # fallback: slot mean
 
         frames.append(pd.DataFrame({
             "scats_number": site,
@@ -216,10 +198,7 @@ def fill_gaps(series: dict, days: pd.DatetimeIndex) -> pd.DataFrame:
         }))
     return pd.concat(frames, ignore_index=True)
 
-
-# --------------------------------------------------------------------------
 # 6. Site metadata (coordinates)
-# --------------------------------------------------------------------------
 def build_site_metadata(raw: pd.DataFrame, clean: pd.DataFrame, log: dict) -> pd.DataFrame:
     """One row per site. Lat/lon = median of the non-zero detector coordinates."""
     coords = raw[(raw["NB_LATITUDE"] != 0) & (raw["NB_LONGITUDE"] != 0)]
@@ -239,10 +218,7 @@ def build_site_metadata(raw: pd.DataFrame, clean: pd.DataFrame, log: dict) -> pd
     meta.index.name = "scats_number"
     return meta.reset_index()
 
-
-# --------------------------------------------------------------------------
 # 7. Validate (the quality checklist, as code)
-# --------------------------------------------------------------------------
 def validate(clean: pd.DataFrame, meta: pd.DataFrame) -> dict:
     """Raise AssertionError if the cleaned data breaks any quality rule."""
     n_days = clean["datetime"].dt.normalize().nunique()
@@ -268,7 +244,6 @@ def validate(clean: pd.DataFrame, meta: pd.DataFrame) -> dict:
     assert not failed, f"Data quality checks failed: {failed}"
     return checks
 
-
 def load_clean(out_dir: str = "data/Processed_Data"):
     """Reload the saved files with correct types (keeps the '0970' leading zero)."""
     clean = pd.read_csv(Path(out_dir) / "scats_clean_15min.csv",
@@ -276,10 +251,7 @@ def load_clean(out_dir: str = "data/Processed_Data"):
     meta = pd.read_csv(Path(out_dir) / "site_metadata.csv", dtype={"scats_number": str})
     return clean, meta
 
-
-# --------------------------------------------------------------------------
 # 8. Shared helpers for ALL models (Linear, LSTM, GRU, ...)
-# --------------------------------------------------------------------------
 class MinMax:
     """
     Tiny MinMax scaler. Fit it on TRAIN data only -> no data leakage.
@@ -305,7 +277,6 @@ class MinMax:
         s.lo, s.hi = float(d["min"]), float(d["max"])
         return s
 
-
 def time_features(index: pd.DatetimeIndex) -> np.ndarray:
     """
     Time of day as sin/cos (so 23:45 is 'next to' 00:00) + weekend flag.
@@ -314,9 +285,8 @@ def time_features(index: pd.DatetimeIndex) -> np.ndarray:
     index = pd.DatetimeIndex(index)
     slot = index.hour * 4 + index.minute // 15
     angle = 2 * np.pi * slot / SLOTS_PER_DAY
-    weekend = (index.dayofweek >= 5).astype(float)
+    weekend = (index.day_of_week >= 5).astype(float)
     return np.column_stack([np.sin(angle), np.cos(angle), weekend])
-
 
 def build_supervised(site_df: pd.DataFrame, lags: int = 12):
     """
@@ -338,10 +308,7 @@ def build_supervised(site_df: pd.DataFrame, lags: int = 12):
     aux = time_features(pd.DatetimeIndex(times))
     return seq, aux, v[lags:], times, v
 
-
-# --------------------------------------------------------------------------
 # Main: run the whole pipeline
-# --------------------------------------------------------------------------
 def run_pipeline(xls_path: str, out_dir: str = "data/Processed_Data") -> dict:
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -373,7 +340,6 @@ def run_pipeline(xls_path: str, out_dir: str = "data/Processed_Data") -> dict:
     }
     (out / "quality_report.json").write_text(json.dumps(summary, indent=2))
     return summary
-
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Clean the SCATS October 2006 dataset")

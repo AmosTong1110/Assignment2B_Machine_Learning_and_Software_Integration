@@ -5,7 +5,6 @@ import heapq
 from .heuristic import cost_heuristic
 from .node import Node
 
-
 def astar(problem):
     """Return the first goal node found and the number of nodes created."""
     origin_x, origin_y = problem.coordinates[problem.origin]

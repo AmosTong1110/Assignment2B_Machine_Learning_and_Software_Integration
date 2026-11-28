@@ -3,9 +3,9 @@ route_finder.py  -  up to 5 routes from origin O to destination D   (Task 4)
 ===========================================================================
 Ties everything together:
 
-    ML flow prediction at time T  ->  edge_costs()  ->  travel time of every edge   (Task 2 + 3)
-    edges + travel times          ->  Part A Problem  (nodes = SCATS sites, cost = seconds)
-    Part A search + Yen's top-k   ->  up to k routes, fastest first                  (Task 4)
+    ML flow prediction at time T ->  edge_costs()  ->  travel time of every edge  (Task 2 + 3)
+    edges + travel times ->  Part A Problem  (nodes = SCATS sites, cost = seconds)
+    Part A search + Yen's top-k ->  up to k routes, fastest first  (Task 4)
 
 Run from the project root, e.g.:
     python -m src.Routing.route_finder --origin 2000 --destination 3002 --time "2006-10-26 08:00"
@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import sys
 from dataclasses import dataclass
 from functools import lru_cache
 
@@ -27,23 +28,20 @@ import pandas as pd
 import src.Models.deep_common as dc
 from src.Routing import edge_costs as ec
 from src.Routing import travel_time as tt
-from src.Routing.graph_builder import load_edges, load_nodes, load_site_labels
+from src.Routing.graph_builder import load_nodes, load_site_labels
 from src.Search import SEARCH_METHODS
 from src.Search.problem import Problem
 from src.Search.top_k import k_routes
 
-MAX_ROUTES = 5          # the brief asks for "up to five (5) routes"
+MAX_ROUTES = 5  # the brief asks for "up to five (5) routes"
 
-
-# --------------------------------------------------------------------------
 # Results
-# --------------------------------------------------------------------------
 @dataclass
 class Route:
-    rank: int                  # 1 = fastest
-    path: list[str]            # SCATS sites, origin first
-    travel_time_s: float       # sum of the edge travel times (driving + 30 s per intersection)
-    legs: pd.DataFrame         # one row per edge: from, to, road, distance_km, flow_vph, speed_kmh, travel_time_s
+    rank: int  # 1 = fastest
+    path: list[str]  # SCATS sites, origin first
+    travel_time_s: float  # sum of the edge travel times (driving + 30 s per intersection)
+    legs: pd.DataFrame  # one row per edge: from, to, road, distance_km, flow_vph, speed_kmh, travel_time_s
 
     @property
     def minutes(self) -> float:
@@ -62,7 +60,6 @@ class Route:
                 out.append(road)
         return out
 
-
 @dataclass
 class RouteResult:
     origin: str
@@ -71,19 +68,15 @@ class RouteResult:
     model: str
     method: str
     routes: list[Route]
-    nodes_created: int         # search effort, summed over every Yen's iteration
-    edge_table: pd.DataFrame   # edge_costs() output used for this search (for the map / report)
+    nodes_created: int  # search effort, summed over every Yen's iteration
+    edge_table: pd.DataFrame  # edge_costs() output used for this search (for the map / report)
 
-
-# --------------------------------------------------------------------------
 # Helpers
-# --------------------------------------------------------------------------
 def config_with(cfg: dict = None, **travel_time) -> dict:
     """A copy of config.yaml with some travel_time: values replaced (e.g. flow_mode='total')."""
     cfg = copy.deepcopy(cfg or dc.load_config())
     cfg.setdefault("travel_time", {}).update({k: v for k, v in travel_time.items() if v is not None})
     return cfg
-
 
 @lru_cache(maxsize=1)
 def site_labels() -> dict[str, str]:
@@ -93,7 +86,6 @@ def site_labels() -> dict[str, str]:
     and xlrd are NOT needed to run the GUI.  Returns {} if the file is missing.
     """
     return load_site_labels()
-
 
 def build_problem(edge_table: pd.DataFrame, nodes: pd.DataFrame, origin: str, destination: str,
                   speed_limit_kmh: float = tt.SPEED_LIMIT_KMH) -> Problem:
@@ -107,14 +99,13 @@ def build_problem(edge_table: pd.DataFrame, nodes: pd.DataFrame, origin: str, de
     for (a, b), seconds in ec.cost_lookup(edge_table).items():
         edges.setdefault(a, []).append((b, seconds))
     for nbrs in edges.values():
-        nbrs.sort(key=lambda e: e[0])                       # same tie-breaking rule as Part A
+        nbrs.sort(key=lambda e: e[0])  # same tie-breaking rule as Part A
 
     coordinates = {s: (lat, lon) for s, lat, lon in nodes[["scats_number", "latitude", "longitude"]]
                    .itertuples(index=False)}
     return Problem(coordinates, edges, origin, [destination],
                    distance=lambda p, q: tt.haversine_km(p[0], p[1], q[0], q[1]),
                    cost_per_distance=3600.0 / speed_limit_kmh)
-
 
 def validate_sites(origin: str, destination: str, nodes: pd.DataFrame) -> tuple[str, str]:
     """'970' -> '0970'; raise a clear error for unknown or identical sites."""
@@ -127,10 +118,7 @@ def validate_sites(origin: str, destination: str, nodes: pd.DataFrame) -> tuple[
         raise ValueError("Origin and destination are the same site.")
     return origin, destination
 
-
-# --------------------------------------------------------------------------
 # Main entry point
-# --------------------------------------------------------------------------
 def find_routes(origin: str, destination: str, when, model: str = None, method: str = "AS",
                 k: int = MAX_ROUTES, cfg: dict = None, edge_table: pd.DataFrame = None) -> RouteResult:
     """
@@ -150,7 +138,7 @@ def find_routes(origin: str, destination: str, when, model: str = None, method: 
 
     nodes = load_nodes(cfg)
     origin, destination = validate_sites(origin, destination, nodes)
-    when = pd.Timestamp(when).floor("15min")          # predictions are per 15-min slot
+    when = pd.Timestamp(when).floor("15min")  # predictions are per 15-min slot
 
     if edge_table is None:
         edge_table = ec.edge_costs(when, model, cfg)
@@ -168,7 +156,6 @@ def find_routes(origin: str, destination: str, when, model: str = None, method: 
         routes.append(Route(rank, path, float(cost), legs))
     return RouteResult(origin, destination, when, model, method, routes, nodes_created, edge_table)
 
-
 def format_result(result: RouteResult) -> str:
     """Plain-text summary (used by the command line)."""
     labels = site_labels()
@@ -185,7 +172,6 @@ def format_result(result: RouteResult) -> str:
         lines.append("   via " + ", ".join(r.roads))
     return "\n".join(lines)
 
-
 def main() -> None:
     ap = argparse.ArgumentParser(description="Find up to 5 routes between two SCATS sites")
     ap.add_argument("-o", "--origin", required=True, help="origin SCATS site, e.g. 2000")
@@ -197,10 +183,13 @@ def main() -> None:
     ap.add_argument("--config", default=None, help="path to config.yaml (default: project root)")
     args = ap.parse_args()
 
-    result = find_routes(args.origin, args.destination, args.time, args.model, args.method,
-                         args.k, dc.load_config(args.config))
+    try:
+        result = find_routes(args.origin, args.destination, args.time, args.model, args.method, args.k, dc.load_config(args.config))
+    except ImportError as e:  # GRU / LSTM need TensorFlow
+        sys.exit(f"Error: {e}. GRU and LSTM need TensorFlow - try --model linear or --model actual.")
+    except (ValueError, FileNotFoundError) as e:  # bad site, time, k ... -> one clear line
+        sys.exit(f"Error: {e}")
     print(format_result(result))
-
 
 if __name__ == "__main__":
     main()

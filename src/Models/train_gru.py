@@ -3,6 +3,7 @@ train_gru.py  -  train + evaluate the GRU for every site
 ========================================================
 Run from the project root:      python -m src.Models.train_gru
 Quick test on two sites:        python -m src.Models.train_gru --sites 2000 3002 --epochs 5
+(a quick test saves to saved_models/quick_test and results/quick_test, so the real files are kept)
 
 Settings (epochs, units, ...) come from config.yaml.
 

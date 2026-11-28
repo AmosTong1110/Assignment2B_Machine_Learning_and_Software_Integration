@@ -13,24 +13,16 @@ from __future__ import annotations
 
 import src.Models.deep_common as dc
 
-MODEL_NAME = "GRU"       # name that appears in the results files / plots
-MODEL_KEY = "gru"        # used for file and folder names
-LAYER = "GRU"            # the Keras layer
-
+MODEL_NAME = "GRU"  # name that appears in the results files / plots
+MODEL_KEY = "gru"  # used for file and folder names
+LAYER = "GRU"  # the Keras layer
 
 def train(cfg=None, sites=None):
     """Train + evaluate on all sites; writes results/gru_*.csv and saved_models/gru/."""
     return dc.train_deep(MODEL_NAME, MODEL_KEY, LAYER, cfg, sites)
 
-
-def load_model(site, cfg=None):
-    cfg = cfg or dc.load_config()
-    return dc.load_model(MODEL_KEY, site, dc.get_path(cfg, "models_dir"))
-
-
 def predict(site, when, **kwargs):
     return dc.predict(MODEL_KEY, site, when, **kwargs)
-
 
 def predict_hourly(site, when, **kwargs):
     return dc.predict_hourly(MODEL_KEY, site, when, **kwargs)

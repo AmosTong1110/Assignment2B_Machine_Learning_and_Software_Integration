@@ -1,30 +1,26 @@
 """
 evaluate.py  -  SHARED by every model (Linear, LSTM, GRU, ...)
 ==============================================================
-One referee, one stopwatch: every model is scored on EXACTLY the same test
-rows, with the SAME metrics, in the SAME units, and results are written in the
-SAME file format.  That is what makes the model comparison fair.
+One referee, one stopwatch: every model is scored on EXACTLY the same test rows, with the SAME metrics, in the SAME units, and results are written in the SAME file format.  That is what makes the model comparison fair.
 
-Rules (do not change them without telling the team):
-  * Data         : data/Processed_Data/scats_clean_15min.csv  (from data_processing.py)
-  * Test set     : the LAST 7 days of every site (672 rows of 15 minutes)
-  * Sites        : all sites except those marked low_quality in site_metadata.csv
-  * Metrics      : MAE and RMSE in VEHICLES PER 15 MINUTES (not scaled 0-1!)
-                   NRMSE = RMSE / mean(actual flow)  (a fraction; 0.10 = 10% error)
-                   NRMSE uses the same definition as the course example
-                   (regression_tree_2B.ipynb), so errors of busy and quiet sites
-                   can be compared.
-  * Scored on    : real measurements only (imputed == 0)
-  * Result file  : columns  model, scats_number, mae, rmse, nrmse, n_eval, train_seconds
+Rules (the same for every model):
+  * Data: data/Processed_Data/scats_clean_15min.csv  (from data_processing.py)
+  * Test set: the LAST 7 days of every site (672 rows of 15 minutes)
+  * Sites: all sites except those marked low_quality in site_metadata.csv
+  * Metrics: MAE and RMSE in VEHICLES PER 15 MINUTES (not scaled 0-1!)
+            NRMSE = RMSE / mean(actual flow)  (a fraction; 0.10 = 10% error)
+            NRMSE uses the same definition as the course example (regression_tree_2B.ipynb), so errors of busy and quiet sites can be compared.
+  * Scored on: real measurements only (imputed == 0)
+  * Result file: columns  model, scats_number, mae, rmse, nrmse, n_eval, train_seconds
 
-How a model owner uses this file (example for a PyTorch model):
+How a model uses this file (example):
 
     import src.Models.data_processing as dp
     import src.Models.evaluate as ev
     clean, meta = dp.load_clean("data/Processed_Data")
     rows = []
     for site in ev.get_eval_sites(meta):
-        truth = ev.get_test_truth(clean, site)       # the answer key (672 rows)
+        truth = ev.get_test_truth(clean, site)  # the answer key (672 rows)
         y_pred = ...your model predictions, 672 numbers, in vehicles/15min...
         rows.append(ev.evaluate_site("LSTM", site, y_pred, truth, train_seconds))
     ev.save_results(rows, "results/lstm_metrics.csv")
@@ -43,17 +39,13 @@ import pandas as pd
 
 SLOTS_PER_DAY = 96
 TEST_DAYS = 7
-TEST_SIZE = TEST_DAYS * SLOTS_PER_DAY          # 672 test rows per site
+TEST_SIZE = TEST_DAYS * SLOTS_PER_DAY  # 672 test rows per site
 RESULT_COLUMNS = ["model", "scats_number", "mae", "rmse", "nrmse", "n_eval", "train_seconds"]
 
-
-# --------------------------------------------------------------------------
 # The shared "answer key"
-# --------------------------------------------------------------------------
 def get_eval_sites(meta: pd.DataFrame) -> list[str]:
     """Sites every model is evaluated on (low-quality sites are excluded)."""
     return meta.loc[~meta["low_quality"], "scats_number"].tolist()
-
 
 def get_test_truth(clean: pd.DataFrame, site: str) -> pd.DataFrame:
     """
@@ -70,19 +62,14 @@ def get_test_truth(clean: pd.DataFrame, site: str) -> pd.DataFrame:
         raise ValueError(f"Site {site}: expected {TEST_SIZE} test rows, got {len(truth)}")
     return truth
 
-
-# --------------------------------------------------------------------------
 # Metrics
-# --------------------------------------------------------------------------
 def mae(y_true, y_pred) -> float:
     """Mean Absolute Error: the average miss, in vehicles per 15 minutes."""
     return float(np.mean(np.abs(np.asarray(y_true) - np.asarray(y_pred))))
 
-
 def rmse(y_true, y_pred) -> float:
     """Root Mean Squared Error: like MAE but punishes big misses more."""
     return float(np.sqrt(np.mean((np.asarray(y_true) - np.asarray(y_pred)) ** 2)))
-
 
 def nrmse(y_true, y_pred) -> float:
     """
@@ -92,7 +79,6 @@ def nrmse(y_true, y_pred) -> float:
     """
     mean_flow = float(np.mean(np.asarray(y_true)))
     return rmse(y_true, y_pred) / mean_flow if mean_flow > 0 else float("nan")
-
 
 def evaluate_site(model: str, site: str, y_pred, truth: pd.DataFrame,
                   train_seconds: float = np.nan) -> dict:
@@ -111,7 +97,7 @@ def evaluate_site(model: str, site: str, y_pred, truth: pd.DataFrame,
         raise ValueError(f"{model}/{site}: predictions look SCALED (0-1). "
                          "Use scaler.inverse(...) to convert back to vehicles first.")
 
-    keep = truth["imputed"].to_numpy() == 0          # score real measurements only
+    keep = truth["imputed"].to_numpy() == 0  # score real measurements only
     if keep.sum() == 0:
         raise ValueError(f"{model}/{site}: no real (non-imputed) test rows to score")
 
@@ -125,7 +111,6 @@ def evaluate_site(model: str, site: str, y_pred, truth: pd.DataFrame,
         "train_seconds": float(train_seconds),
     }
 
-
 def persistence_results(clean: pd.DataFrame, sites: list[str]) -> list[dict]:
     """Naive baseline: 'next value = last value'. Every model should beat this."""
     rows = []
@@ -134,17 +119,13 @@ def persistence_results(clean: pd.DataFrame, sites: list[str]) -> list[dict]:
         rows.append(evaluate_site("Persistence (baseline)", site, truth["prev_flow"], truth, 0.0))
     return rows
 
-
-# --------------------------------------------------------------------------
 # Save / compare
-# --------------------------------------------------------------------------
 def save_results(rows: list[dict], path: str) -> pd.DataFrame:
     """Write result rows to CSV in the shared format."""
     df = pd.DataFrame(rows, columns=RESULT_COLUMNS).round(4)
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(path, index=False)
     return df
-
 
 def compare(paths: list[str]) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
@@ -169,7 +150,6 @@ def compare(paths: list[str]) -> tuple[pd.DataFrame, pd.DataFrame]:
     per_site = df.pivot(index="scats_number", columns="model", values="mae").round(2)
     summary["best_on_n_sites"] = per_site.idxmin(axis=1).value_counts().reindex(summary.index).fillna(0).astype(int)
     return summary, per_site
-
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Compare model result CSV files")

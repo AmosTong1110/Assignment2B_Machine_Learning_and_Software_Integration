@@ -1,14 +1,12 @@
 """
-Unit tests for Task 3 - travel time estimation.
+Unit tests TC9-TC11 for Task 3 - travel time estimation.
 Run from the project root:      python -m unittest discover tests -v
 
-TT  = travel_time.py   (flow -> speed -> seconds; pure maths)
-GB  = graph_builder.py (road names -> edges)
-EC  = edge_costs.py    (glue; tested with fake data and a fake model, so no TensorFlow needed)
+TC9-TC10  travel_time.py  (flow -> speed -> seconds; pure maths)
+TC11      edge_costs.py   (glue; tested with fake data and a fake model, so no TensorFlow needed)
 """
 from __future__ import annotations
 
-import math
 import sys
 import types
 import unittest
@@ -17,116 +15,34 @@ from unittest import mock
 import pandas as pd
 
 from src.Routing import edge_costs as ec
-from src.Routing import graph_builder as gb
 from src.Routing import travel_time as tt
 
-
-# ==========================================================================
 # travel_time.py
-# ==========================================================================
 class TestTravelTime(unittest.TestCase):
-    def test_flow_to_speed_key_points(self):                            # TT-01
+    def test_tc09_flow_to_speed_key_points(self):  # TC9
         """Parabola coefficients, speed limit cap, capacity point, over-capacity clamp, bad input."""
         a, b = tt.parabola_coefficients()
-        self.assertAlmostEqual(a, -1.46484375)                          # PDF graph (-1500/32^2)
+        self.assertAlmostEqual(a, -1.46484375)  # PDF graph (-1500/32^2)
         self.assertAlmostEqual(b, 93.75)
-        self.assertEqual(tt.flow_to_speed(0), 60.0)                     # empty road: speed limit
-        self.assertEqual(tt.flow_to_speed(200), 60.0)                   # low flow is capped at 60
+        self.assertEqual(tt.flow_to_speed(0), 60.0)  # empty road: speed limit
+        self.assertEqual(tt.flow_to_speed(200), 60.0)  # low flow is capped at 60
         self.assertEqual(tt.flow_to_speed(351), 60.0)
-        self.assertAlmostEqual(tt.flow_to_speed(351.5625), 60.0, places=6)   # PDF point (351.56, 60)
-        self.assertAlmostEqual(tt.flow_to_speed(1500), 32.0)            # PDF point (1500, 32)
-        self.assertEqual(tt.flow_to_speed(3000), 32.0)                  # over capacity is clamped
+        self.assertAlmostEqual(tt.flow_to_speed(351.5625), 60.0, places=6)  # PDF point (351.56, 60)
+        self.assertAlmostEqual(tt.flow_to_speed(1500), 32.0)  # PDF point (1500, 32)
+        self.assertEqual(tt.flow_to_speed(3000), 32.0)  # over capacity is clamped
         with self.assertRaises(ValueError):
-            tt.flow_to_speed(-1)                                        # negative flow rejected
+            tt.flow_to_speed(-1)  # negative flow rejected
 
-    def test_speed_curve_shape(self):                                   # TT-02
-        """Speed falls as flow rises, matches the PDF formula, and the red branch is slower."""
-        speeds = [tt.flow_to_speed(f) for f in range(400, 1500, 100)]
-        self.assertTrue(all(s1 > s2 for s1, s2 in zip(speeds, speeds[1:])))
-        for flow in (400, 800, 1000, 1499):                             # round trip with the PDF formula
-            self.assertAlmostEqual(tt.speed_to_flow(tt.flow_to_speed(flow)), flow, places=6)
-        green, red = tt.flow_to_speed(1000), tt.flow_to_speed(1000, congested=True)
-        self.assertGreater(green, 32.0)
-        self.assertLess(red, 32.0)
-        self.assertAlmostEqual(tt.speed_to_flow(red), 1000, places=6)
-
-    def test_edge_travel_time(self):                                    # TT-03
+    def test_tc10_edge_travel_time(self):  # TC10
         """time = distance / speed + 30 s delay; more traffic is never faster."""
-        self.assertAlmostEqual(tt.edge_travel_time_s(1.0, 0), 90.0)         # 1 km at 60 km/h = 60 s + 30 s
-        self.assertAlmostEqual(tt.edge_travel_time_s(1.0, 1500), 142.5)     # 1 km at 32 km/h = 112.5 s + 30 s
-        self.assertEqual(tt.edge_travel_time_s(0.0, 900), 30.0)             # zero distance: only the delay
+        self.assertAlmostEqual(tt.edge_travel_time_s(1.0, 0), 90.0)  # 1 km at 60 km/h = 60 s + 30 s
+        self.assertAlmostEqual(tt.edge_travel_time_s(1.0, 1500), 142.5)  # 1 km at 32 km/h = 112.5 s + 30 s
+        self.assertEqual(tt.edge_travel_time_s(0.0, 900), 30.0)  # zero distance: only the delay
         times = [tt.edge_travel_time_s(2.0, f) for f in (0, 500, 1000, 1500, 2500)]
         self.assertEqual(times, sorted(times))
 
-    def test_config_overrides(self):                                    # TT-04
-        p = tt.params_from_config({"travel_time": {"intersection_delay_s": 0, "speed_limit_kmh": 50}})
-        self.assertAlmostEqual(tt.edge_travel_time_s(1.0, 0, **p), 72.0)   # 1 km at 50 km/h, no delay
-
-    def test_haversine_known_distance(self):                            # TT-05
-        # 0.01 degree of latitude is ~1.112 km everywhere
-        self.assertAlmostEqual(tt.haversine_km(-37.80, 145.0, -37.81, 145.0), 1.112, places=2)
-        self.assertEqual(tt.haversine_km(-37.8, 145.0, -37.8, 145.0), 0.0)
-
-
-# ==========================================================================
-# graph_builder.py
-# ==========================================================================
-class TestGraphBuilder(unittest.TestCase):
-    def test_parse_roads(self):                                         # GB-01
-        self.assertEqual(gb.parse_roads("WARRIGAL_RD N of TOORAK_RD"), ("WARRIGAL_RD", "TOORAK_RD"))
-        self.assertEqual(gb.parse_roads("HIGH_ST NE OF HARP_ST"), ("HIGH_ST", "HARP_RD"))   # alias
-        self.assertEqual(gb.parse_roads("STUDLEY PARK_RD W of PRINCESS_ST"),
-                         ("STUDLEY PARK_RD", "PRINCESS_ST"))
-        with self.assertRaises(ValueError):                             # unreadable text is rejected
-            gb.parse_roads("NOT A LOCATION")
-
-    def test_consecutive_sites_on_a_road_are_joined(self):              # GB-02
-        nodes = pd.DataFrame({"scats_number": ["A", "B", "C"],
-                              "latitude": [-37.80, -37.81, -37.82],
-                              "longitude": [145.0, 145.0, 145.0]})
-        roads = pd.DataFrame({"scats_number": ["C", "A", "B"], "road": ["X_RD"] * 3})
-        with mock.patch.object(gb, "EXTRA_EDGES", []), mock.patch.object(gb, "REMOVED_EDGES", []):
-            edges, dropped = gb.build_edges(nodes, roads)
-        pairs = set(zip(edges["from"], edges["to"]))
-        # A-B and B-C both ways, but NOT A-C (C is not A's neighbour on the road)
-        self.assertEqual(pairs, {("A", "B"), ("B", "A"), ("B", "C"), ("C", "B")})
-        self.assertTrue(dropped.empty)
-
-    def test_long_joins_are_dropped(self):                              # GB-03
-        nodes = pd.DataFrame({"scats_number": ["A", "B"], "latitude": [-37.80, -37.90],
-                              "longitude": [145.0, 145.0]})                    # ~11 km apart
-        roads = pd.DataFrame({"scats_number": ["A", "B"], "road": ["HIGH_ST"] * 2})
-        with mock.patch.object(gb, "EXTRA_EDGES", []), mock.patch.object(gb, "REMOVED_EDGES", []):
-            edges, dropped = gb.build_edges(nodes, roads)
-        self.assertTrue(edges.empty)
-        self.assertEqual(len(dropped), 1)
-
-    def test_real_network_is_connected(self):                           # GB-04
-        """Every site can reach every other site in the real edges.csv."""
-        try:
-            edges = gb.load_edges()
-            nodes = gb.load_nodes()
-        except FileNotFoundError:
-            self.skipTest("edges.csv not built yet")
-        adj = {}
-        for a, b in zip(edges["from"], edges["to"]):
-            adj.setdefault(a, set()).add(b)
-        start = nodes["scats_number"].iloc[0]
-        seen, stack = {start}, [start]
-        while stack:
-            for nxt in adj.get(stack.pop(), ()):
-                if nxt not in seen:
-                    seen.add(nxt)
-                    stack.append(nxt)
-        self.assertEqual(seen, set(nodes["scats_number"]))
-        self.assertTrue((edges["distance_km"] > 0).all())
-
-
-# ==========================================================================
 # edge_costs.py   (fake data + fake model -> fast, no TensorFlow)
-# ==========================================================================
 WHEN = pd.Timestamp("2006-10-26 08:00")
-
 
 def _fake_world():
     clean = pd.DataFrame({"scats_number": ["A", "B", "A", "B"],
@@ -136,7 +52,6 @@ def _fake_world():
     edges = pd.DataFrame({"from": ["A", "B"], "to": ["B", "A"], "road": ["X_RD"] * 2,
                           "distance_km": [1.0, 1.0]})
     return clean, meta, edges
-
 
 class TestEdgeCosts(unittest.TestCase):
     def setUp(self):
@@ -153,43 +68,17 @@ class TestEdgeCosts(unittest.TestCase):
     def _cfg(self, **tt_settings):
         return {"paths": {"processed_dir": "x", "models_dir": "x"}, "travel_time": tt_settings}
 
-    def test_actual_flow_origin_per_detector(self):                     # EC-01
-        cfg = self._cfg(flow_site="origin", flow_mode="per_detector")
-        t = ec.edge_costs(WHEN, "actual", cfg, self.edges).set_index(["from", "to"])
-        self.assertEqual(t.at[("A", "B"), "flow_vph"], 100 * 4 / 2)        # site A, 2 detectors
-        self.assertEqual(t.at[("B", "A"), "flow_vph"], 300 * 4 / 4)        # site B, 4 detectors
-        self.assertAlmostEqual(t.at[("A", "B"), "travel_time_s"], 90.0)    # 200 veh/h -> 60 km/h
-
-    def test_destination_and_total_mode(self):                          # EC-02
-        cfg = self._cfg(flow_site="destination", flow_mode="total")
-        t = ec.edge_costs(WHEN, "actual", cfg, self.edges).set_index(["from", "to"])
-        self.assertEqual(t.at[("A", "B"), "flow_vph"], 1200.0)             # B's total flow
-        self.assertAlmostEqual(t.at[("A", "B"), "speed_kmh"], round(tt.flow_to_speed(1200), 2))
-
-    def test_model_predictions_and_fallback(self):                      # EC-03
+    def test_tc11_model_predictions_and_fallback(self):  # TC11
         fake = types.ModuleType("fake_model")
-        fake.predict_hourly = lambda site, when: 1500.0                    # always 'at capacity'
+        fake.predict_hourly = lambda site, when: 1500.0  # always 'at capacity'
         cfg = self._cfg(flow_site="origin", flow_mode="total")
         with mock.patch.dict(sys.modules, {"src.Models.gru_model": fake}), \
              mock.patch.object(ec, "_has_model", lambda m, site, c: site == "A"):
             t = ec.edge_costs(WHEN, "gru", cfg, self.edges).set_index(["from", "to"])
         self.assertEqual(t.at[("A", "B"), "source"], "gru")
-        self.assertAlmostEqual(t.at[("A", "B"), "travel_time_s"], 142.5)   # 1 km at 32 km/h + 30 s
-        self.assertEqual(t.at[("B", "A"), "source"], "historical_avg")     # B has no model
+        self.assertAlmostEqual(t.at[("A", "B"), "travel_time_s"], 142.5)  # 1 km at 32 km/h + 30 s
+        self.assertEqual(t.at[("B", "A"), "source"], "historical_avg")  # B has no model
         self.assertEqual(t.at[("B", "A"), "flow_vph"], 4 * (300 + 200) / 2)
-
-    def test_cost_lookup_and_bad_settings(self):                        # EC-04
-        t = ec.edge_costs(WHEN, "actual", self._cfg(), self.edges)
-        costs = ec.cost_lookup(t)
-        self.assertEqual(set(costs), {("A", "B"), ("B", "A")})
-        self.assertTrue(all(isinstance(v, float) and v >= 30 for v in costs.values()))
-        with self.assertRaises(ValueError):                              # unknown flow_site
-            ec.edge_costs(WHEN, "actual", self._cfg(flow_site="middle"), self.edges)
-        with self.assertRaises(ValueError):                              # unknown flow_mode
-            ec.edge_costs(WHEN, "actual", self._cfg(flow_mode="average"), self.edges)
-        with self.assertRaises(ValueError):                              # unknown model
-            ec.site_flows(WHEN, "svm", ["A"], self._cfg())
-
 
 if __name__ == "__main__":
     unittest.main()

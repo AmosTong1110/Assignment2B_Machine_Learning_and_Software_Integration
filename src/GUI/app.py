@@ -45,15 +45,13 @@ METHODS = {("A* search (recommended)" if code == "AS" else name): code
 
 DAYS = pd.date_range("2006-10-01", "2006-10-31", freq="D")
 TIMES = [f"{h:02d}:{m:02d}" for h in range(24) for m in (0, 15, 30, 45)]
-DEFAULT_TRIP = ("2000", "3002", "2006-10-26", "08:00")    # the example in the brief, Thursday 8 am
+DEFAULT_TRIP = ("2000", "3002", "2006-10-26", "08:00")  # the example in the brief, Thursday 8 am
 
 ROUTE_COLOUR = "#1d4ed8"
-
 
 def _key_for(mapping: dict, value: str) -> str:
     """Label in a {label: value} dict for a value (used to show config defaults)."""
     return next((k for k, v in mapping.items() if v == value), next(iter(mapping)))
-
 
 class RouteApp(ttk.Frame):
     def __init__(self, root: tk.Tk):
@@ -67,7 +65,7 @@ class RouteApp(ttk.Frame):
         self.pos = self.nodes.set_index("scats_number")[["longitude", "latitude"]]
 
         self.result: rf.RouteResult | None = None
-        self.cost_cache: dict[tuple, pd.DataFrame] = {}     # (time, model) -> edge table
+        self.cost_cache: dict[tuple, pd.DataFrame] = {}  # (time, model) -> edge table
         self.jobs: queue.Queue = queue.Queue()
 
         self._build_controls()
@@ -77,9 +75,7 @@ class RouteApp(ttk.Frame):
         root.rowconfigure(0, weight=1)
         self.draw_map()
 
-    # ------------------------------------------------------------------
     # Layout
-    # ------------------------------------------------------------------
     def _combo(self, parent, row, label, values, default, width=34):
         ttk.Label(parent, text=label).grid(row=row, column=0, sticky="w", pady=3)
         var = tk.StringVar(value=default)
@@ -165,9 +161,7 @@ class RouteApp(ttk.Frame):
                   foreground="#555", wraplength=440).pack(anchor="w", pady=(4, 0))
         bottom.add(legs_frame, weight=2)
 
-    # ------------------------------------------------------------------
     # Small helpers
-    # ------------------------------------------------------------------
     def _choice(self, site: str) -> str:
         return next(c for c in self.site_choices if c.split()[0] == site)
 
@@ -183,9 +177,7 @@ class RouteApp(ttk.Frame):
     def set_status(self, text: str, error: bool = False):
         self.status.configure(text=text, foreground="#b91c1c" if error else "#555")
 
-    # ------------------------------------------------------------------
     # Search (background thread)
-    # ------------------------------------------------------------------
     def start_search(self):
         if str(self.go["state"]) == "disabled":
             return
@@ -215,7 +207,7 @@ class RouteApp(ttk.Frame):
             result = rf.find_routes(job["origin"], job["destination"], job["when"], job["model"],
                                     job["method"], job["k"], self.cfg, edge_table=table)
             self.jobs.put(("ok", (cache_key, result)))
-        except Exception as e:                                    # shown to the user, never crashes the GUI
+        except Exception as e:  # shown to the user, never crashes the GUI
             self.jobs.put(("error", e))
 
     def _poll(self):
@@ -238,13 +230,11 @@ class RouteApp(ttk.Frame):
         self.show_result(result)
         self.web.configure(state="normal" if result.routes else "disabled")
 
-    # ------------------------------------------------------------------
     # Web map (Research): every hour of the day is predicted for the time slider
-    # ------------------------------------------------------------------
     def open_web_map(self):
         if self.result is None or str(self.web["state"]) == "disabled":
             return
-        from src.GUI import web_map                               # imported only when used
+        from src.GUI import web_map  # imported only when used
         result, cfg = self.result, self.cfg
         self.web.configure(state="disabled")
         self.set_status("Building the traffic map: predicting every hour of the day (up to ~30 s)…")
@@ -257,7 +247,7 @@ class RouteApp(ttk.Frame):
                     if key not in self.cost_cache:
                         try:
                             self.cost_cache[key] = ec.edge_costs(t, result.model, cfg)
-                        except ValueError:                        # no 3 h history (1 Oct, early morning)
+                        except ValueError:  # no 3 h history (1 Oct, early morning)
                             continue
                     frames[t] = self.cost_cache[key]
                 path = web_map.write_map(result, cfg, frames)
@@ -271,9 +261,7 @@ class RouteApp(ttk.Frame):
 
         threading.Thread(target=work, daemon=True).start()
 
-    # ------------------------------------------------------------------
     # Showing the result
-    # ------------------------------------------------------------------
     def show_result(self, result: rf.RouteResult):
         self.result = result
         self.table.delete(*self.table.get_children())
@@ -356,7 +344,6 @@ class RouteApp(ttk.Frame):
         self.fig.tight_layout()
         self.canvas.draw_idle()
 
-
 def run() -> None:
     root = tk.Tk()
     root.title("TBRGS - Boroondara Traffic-Based Route Guidance")
@@ -364,7 +351,6 @@ def run() -> None:
     root.minsize(1100, 700)
     RouteApp(root)
     root.mainloop()
-
 
 if __name__ == "__main__":
     run()

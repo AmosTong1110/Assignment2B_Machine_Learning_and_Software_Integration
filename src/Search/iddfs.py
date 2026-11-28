@@ -2,7 +2,6 @@
 
 from .node import Node
 
-
 def depth_limited_search(problem, depth_limit):
     """Run DFS that never goes deeper than depth_limit.
 

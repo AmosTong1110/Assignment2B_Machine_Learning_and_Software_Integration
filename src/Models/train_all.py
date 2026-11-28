@@ -1,18 +1,22 @@
 """
 train_all.py  -  train every model, compare them, and draw the plots (one command)
 =================================================================================
-Run from the project root:      python -m src.Models.train_all
+Run from the project root:  python -m src.Models.train_all
 
-    python -m src.Models.train_all --only gru                        # just one model
-    python -m src.Models.train_all --sites 2000 3002 --epochs 5      # quick smoke test
-    python -m src.Models.train_all --skip-training                   # only compare + plot existing results
+    python -m src.Models.train_all --only gru  # just one model
+    python -m src.Models.train_all --sites 2000 3002 --epochs 5  # quick smoke test (see note)
+    python -m src.Models.train_all --skip-training  # only compare + plot existing results
+
+Note: --sites / --epochs are for quick tests only.  Their models and results are saved in
+saved_models/quick_test and results/quick_test, so the real trained models and results are
+never overwritten.  For a real run with other settings, change config.yaml.
 
 Steps
-    1. Linear Regression (+ the 'next = last value' baseline)   -> train_linear.py
-    2. LSTM                                                     -> lstm_model.py
-    3. GRU                                                      -> gru_model.py
-    4. Compare all models (same test rows, same metrics)        -> results/model_comparison.csv
-    5. Plots for the report                                     -> results/plots/*.png
+    1. Linear Regression (+ the 'next = last value' baseline)  -> train_linear.py
+    2. LSTM  -> lstm_model.py
+    3. GRU  -> gru_model.py
+    4. Compare all models (same test rows, same metrics)  -> results/model_comparison.csv
+    5. Plots for the report  -> results/plots/*.png
 """
 from __future__ import annotations
 
@@ -27,7 +31,6 @@ import src.Models.train_linear as train_linear
 
 MODELS = ["linear", "lstm", "gru"]
 
-
 def main() -> None:
     ap = argparse.ArgumentParser(description="Train, compare and plot all models")
     ap.add_argument("--config", default=None, help="path to config.yaml")
@@ -40,6 +43,8 @@ def main() -> None:
     cfg = dc.load_config(args.config)
     if args.epochs:
         cfg["training"]["epochs"] = args.epochs
+    if args.sites or args.epochs:
+        dc.use_quick_test_folders(cfg)  # keep the real models and results safe
     results = dc.get_path(cfg, "results_dir")
 
     if not args.skip_training:
@@ -54,8 +59,7 @@ def main() -> None:
             gru.train(cfg, args.sites)
 
     # ---- compare every result file that exists ----
-    files = [results / f for f in ("baseline_metrics.csv", "linear_metrics.csv",
-                                   "lstm_metrics.csv", "gru_metrics.csv") if (results / f).exists()]
+    files = [results / f for f in ("baseline_metrics.csv", "linear_metrics.csv", "lstm_metrics.csv", "gru_metrics.csv") if (results / f).exists()]
     if len(files) < 2:
         print("Not enough result files to compare yet.")
         return
@@ -67,7 +71,6 @@ def main() -> None:
 
     print("\n=== Plots ===")
     plots.main(cfg)
-
 
 if __name__ == "__main__":
     main()

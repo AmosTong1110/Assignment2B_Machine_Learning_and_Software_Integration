@@ -2,7 +2,6 @@
 
 from .node import Node
 
-
 def bfs(problem):
     """Return the first goal node found and the number of Nodes created."""
     origin_x, origin_y = problem.coordinates[problem.origin]

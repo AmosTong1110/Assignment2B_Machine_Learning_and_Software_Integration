@@ -16,25 +16,21 @@ from __future__ import annotations
 import argparse
 
 import matplotlib
-matplotlib.use("Agg")                       # draw to files, no window needed
+matplotlib.use("Agg")  # draw to files, no window needed
 import matplotlib.pyplot as plt
 import pandas as pd
 
 import src.Models.deep_common as dc
 
-COLORS = {"Persistence (baseline)": "#9e9e9e", "Linear Regression": "#1f77b4",
-          "LSTM": "#d62728", "GRU": "#2ca02c"}
+COLORS = {"Persistence (baseline)": "#9e9e9e", "Linear Regression": "#1f77b4", "LSTM": "#d62728", "GRU": "#2ca02c"}
 ORDER = list(COLORS)
-
 
 def _read(path, **kw):
     return pd.read_csv(path, dtype={"scats_number": str}, **kw) if path.exists() else None
 
-
 def _models_in(df):
     return [m for m in ORDER if m in set(df["model"])] + \
            [m for m in sorted(set(df["model"])) if m not in ORDER]
-
 
 def main(cfg: dict = None) -> None:
     cfg = cfg or dc.load_config()
@@ -124,7 +120,6 @@ def main(cfg: dict = None) -> None:
         plt.savefig(out / "4_learning_curves.png", dpi=150); plt.close()
 
     print(f"Saved plots to {out}")
-
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Draw report figures from results/*.csv")
